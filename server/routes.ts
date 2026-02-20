@@ -79,6 +79,77 @@ export async function registerRoutes(
     }
   });
 
+  const hostingCategory = await storage.createCategory({
+    slug: "hosting",
+    name: "Web Hosting",
+    title: "Best Web Hosting Services",
+    description: "We compared 10+ hosting providers for uptime, speed, and customer support to help you launch your site.",
+    icon: "Server"
+  });
+
+  const aiCategory = await storage.createCategory({
+    slug: "ai-tools",
+    name: "AI Tools",
+    title: "Top AI Writing & Image Tools",
+    description: "The AI landscape moves fast. We test the latest LLMs and image generators for creativity and accuracy.",
+    icon: "Brain"
+  });
+
+  const hId = hostingCategory.id;
+  const aiId = aiCategory.id;
+
+  const extraProducts = [
+    {
+      categoryId: hId,
+      slug: "bluehost",
+      name: "Bluehost",
+      logo: "https://upload.wikimedia.org/wikipedia/commons/1/1b/Bluehost_logo.svg",
+      rating: "4.5",
+      price: "$2.95/mo",
+      originalPrice: "$9.99/mo",
+      discount: "70%",
+      affiliateSlug: "bluehost",
+      badge: "🌐 Best for Beginners",
+      shortDescription: "Reliable and affordable shared hosting with 1-click WordPress install.",
+      features: ["Free Domain (1yr)", "Free SSL", "24/7 Support", "WordPress Integration"],
+      pros: ["Very easy setup", "Excellent support", "Free marketing credits"],
+      cons: ["Renewal prices are higher", "No monthly billing option"],
+      bestFor: "Small business owners and bloggers starting their first website.",
+      scores: { speed: 85, security: 88, value: 95, ease: 98 },
+      detailedReview: "Bluehost is the gold standard for beginner-friendly hosting. Its integration with WordPress is seamless, allowing anyone to get a site live in minutes.\n\nWhile its renewal rates are higher, the introductory pricing and included free domain make it the best value for newcomers."
+    },
+    {
+      categoryId: aiId,
+      slug: "jasper",
+      name: "Jasper AI",
+      logo: "https://upload.wikimedia.org/wikipedia/commons/a/a2/Jasper_AI_Logo.png",
+      rating: "4.9",
+      price: "$39/mo",
+      originalPrice: "$49/mo",
+      discount: "20%",
+      affiliateSlug: "jasper",
+      badge: "🤖 Top Rated",
+      shortDescription: "The leading AI content platform for enterprise marketing teams.",
+      features: ["Brand Voice", "Campaign Builder", "Art Generation", "SEO Mode"],
+      pros: ["High quality output", "Great team collaboration", "Plagiarism checker included"],
+      cons: ["Steep learning curve", "Pricey for individuals"],
+      bestFor: "Marketing agencies and content teams needing scale.",
+      scores: { speed: 92, security: 90, value: 85, ease: 88 },
+      detailedReview: "Jasper is more than just a chatbot; it's a full marketing suite. It allows you to train the AI on your specific brand voice so every piece of content sounds like your company.\n\nIts ability to generate entire campaigns from a single brief is a massive time-saver for busy agencies."
+    }
+  ];
+
+  for (const prod of extraProducts) {
+    await storage.createProduct(prod);
+    await storage.createAffiliateLink({
+      slug: prod.affiliateSlug,
+      url: `https://example.com/aff/${prod.affiliateSlug}?ref=MYID`,
+      program: `${prod.name} Partners`,
+      commission: "30%",
+      cookieDays: 45
+    });
+  }
+
   await seedDatabase();
 
   return httpServer;

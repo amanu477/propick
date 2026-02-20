@@ -13,7 +13,7 @@ export function Footer() {
                 <ShieldCheck className="w-5 h-5 text-white" />
               </div>
               <span className="text-lg font-bold font-heading text-white tracking-tight">
-                Trust<span className="text-primary-400">Guide</span>
+                Pro<span className="text-primary-400">Picks</span>
               </span>
             </div>
             <p className="text-sm text-gray-400 leading-relaxed">
@@ -56,7 +56,7 @@ export function Footer() {
         </div>
         
         <div className="border-t border-gray-800 mt-12 pt-8 text-center text-xs text-gray-500">
-          © {new Date().getFullYear()} TrustGuide. All rights reserved.
+          © {new Date().getFullYear()} ProPicks. All rights reserved.
         </div>
       </div>
     </footer>

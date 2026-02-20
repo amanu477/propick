@@ -28,7 +28,7 @@ export function Navbar() {
               <ShieldCheck className="w-6 h-6 text-primary" />
             </div>
             <span className="text-xl font-bold font-heading text-gray-900 tracking-tight">
-              Trust<span className="text-primary">Guide</span>
+              Pro<span className="text-primary">Picks</span>
             </span>
           </Link>
 
