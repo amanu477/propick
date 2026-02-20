@@ -1,18 +1,109 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+export const categories = pgTable("categories", {
+  id: serial("id").primaryKey(),
+  slug: text("slug").notNull().unique(), // e.g. "vpn"
+  name: text("name").notNull(),
+  title: text("title").notNull(), // e.g. "Best VPN Services"
+  description: text("description").notNull(),
+  icon: text("icon").notNull(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export const products = pgTable("products", {
+  id: serial("id").primaryKey(),
+  categoryId: integer("category_id").notNull(),
+  slug: text("slug").notNull().unique(), // e.g. "nordvpn"
+  name: text("name").notNull(),
+  logo: text("logo").notNull(),
+  rating: text("rating").notNull(),
+  price: text("price").notNull(),
+  originalPrice: text("original_price").notNull(),
+  discount: text("discount").notNull(),
+  affiliateSlug: text("affiliate_slug").notNull(),
+  badge: text("badge"),
+  shortDescription: text("short_description").notNull(),
+  features: jsonb("features").notNull().$type<string[]>(),
+  pros: jsonb("pros").notNull().$type<string[]>(),
+  cons: jsonb("cons").notNull().$type<string[]>(),
+  bestFor: text("best_for").notNull(),
+  scores: jsonb("scores").notNull().$type<{ speed: number; security: number; value: number; ease: number }>(),
+  detailedReview: text("detailed_review").notNull(),
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export const affiliateLinks = pgTable("affiliate_links", {
+  id: serial("id").primaryKey(),
+  slug: text("slug").notNull().unique(),
+  url: text("url").notNull(),
+  program: text("program").notNull(),
+  commission: text("commission").notNull(),
+  cookieDays: integer("cookie_days").notNull(),
+});
+
+export const clickLogs = pgTable("click_logs", {
+  id: serial("id").primaryKey(),
+  slug: text("slug").notNull(),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  date: text("date").notNull(), // YYYY-MM-DD
+  userAgent: text("user_agent"),
+  referer: text("referer"),
+  country: text("country"),
+});
+
+export const linkBioCategories = pgTable("link_bio_categories", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  sortOrder: integer("sort_order").notNull(),
+});
+
+export const linkBioItems = pgTable("link_bio_items", {
+  id: serial("id").primaryKey(),
+  categoryId: integer("category_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  slug: text("slug").notNull(),
+  emoji: text("emoji").notNull(),
+  isHot: boolean("is_hot").default(false).notNull(),
+  sortOrder: integer("sort_order").notNull(),
+});
+
+export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
+export const insertProductSchema = createInsertSchema(products).omit({ id: true });
+export const insertAffiliateLinkSchema = createInsertSchema(affiliateLinks).omit({ id: true });
+export const insertClickLogSchema = createInsertSchema(clickLogs).omit({ id: true, timestamp: true });
+export const insertLinkBioCategorySchema = createInsertSchema(linkBioCategories).omit({ id: true });
+export const insertLinkBioItemSchema = createInsertSchema(linkBioItems).omit({ id: true });
+
+export type Category = typeof categories.$inferSelect;
+export type Product = typeof products.$inferSelect;
+export type AffiliateLink = typeof affiliateLinks.$inferSelect;
+export type ClickLog = typeof clickLogs.$inferSelect;
+export type LinkBioCategory = typeof linkBioCategories.$inferSelect;
+export type LinkBioItem = typeof linkBioItems.$inferSelect;
+
+export type InsertCategory = z.infer<typeof insertCategorySchema>;
+export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type InsertAffiliateLink = z.infer<typeof insertAffiliateLinkSchema>;
+export type InsertClickLog = z.infer<typeof insertClickLogSchema>;
+export type InsertLinkBioCategory = z.infer<typeof insertLinkBioCategorySchema>;
+export type InsertLinkBioItem = z.infer<typeof insertLinkBioItemSchema>;
+
+export interface LinkStats {
+  slug: string;
+  totalClicks: number;
+  todayClicks: number;
+}
+
+export interface DashboardStats {
+  totalClicks: number;
+  todayClicks: number;
+  activeLinks: number;
+  estimatedRevenue: string;
+  linkStats: LinkStats[];
+}
+
+export interface LinkBioData {
+  category: LinkBioCategory;
+  items: LinkBioItem[];
+}
