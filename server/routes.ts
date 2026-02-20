@@ -79,76 +79,6 @@ export async function registerRoutes(
     }
   });
 
-  const hostingCategory = await storage.createCategory({
-    slug: "hosting",
-    name: "Web Hosting",
-    title: "Best Web Hosting Services",
-    description: "We compared 10+ hosting providers for uptime, speed, and customer support to help you launch your site.",
-    icon: "Server"
-  });
-
-  const aiCategory = await storage.createCategory({
-    slug: "ai-tools",
-    name: "AI Tools",
-    title: "Top AI Writing & Image Tools",
-    description: "The AI landscape moves fast. We test the latest LLMs and image generators for creativity and accuracy.",
-    icon: "Brain"
-  });
-
-  const hId = hostingCategory.id;
-  const aiId = aiCategory.id;
-
-  const extraProducts = [
-    {
-      categoryId: hId,
-      slug: "bluehost",
-      name: "Bluehost",
-      logo: "https://upload.wikimedia.org/wikipedia/commons/1/1b/Bluehost_logo.svg",
-      rating: "4.5",
-      price: "$2.95/mo",
-      originalPrice: "$9.99/mo",
-      discount: "70%",
-      affiliateSlug: "bluehost",
-      badge: "🌐 Best for Beginners",
-      shortDescription: "Reliable and affordable shared hosting with 1-click WordPress install.",
-      features: ["Free Domain (1yr)", "Free SSL", "24/7 Support", "WordPress Integration"],
-      pros: ["Very easy setup", "Excellent support", "Free marketing credits"],
-      cons: ["Renewal prices are higher", "No monthly billing option"],
-      bestFor: "Small business owners and bloggers starting their first website.",
-      scores: { speed: 85, security: 88, value: 95, ease: 98 },
-      detailedReview: "Bluehost is the gold standard for beginner-friendly hosting. Its integration with WordPress is seamless, allowing anyone to get a site live in minutes.\n\nWhile its renewal rates are higher, the introductory pricing and included free domain make it the best value for newcomers."
-    },
-    {
-      categoryId: aiId,
-      slug: "jasper",
-      name: "Jasper AI",
-      logo: "https://upload.wikimedia.org/wikipedia/commons/a/a2/Jasper_AI_Logo.png",
-      rating: "4.9",
-      price: "$39/mo",
-      originalPrice: "$49/mo",
-      discount: "20%",
-      affiliateSlug: "jasper",
-      badge: "🤖 Top Rated",
-      shortDescription: "The leading AI content platform for enterprise marketing teams.",
-      features: ["Brand Voice", "Campaign Builder", "Art Generation", "SEO Mode"],
-      pros: ["High quality output", "Great team collaboration", "Plagiarism checker included"],
-      cons: ["Steep learning curve", "Pricey for individuals"],
-      bestFor: "Marketing agencies and content teams needing scale.",
-      scores: { speed: 92, security: 90, value: 85, ease: 88 },
-      detailedReview: "Jasper is more than just a chatbot; it's a full marketing suite. It allows you to train the AI on your specific brand voice so every piece of content sounds like your company.\n\nIts ability to generate entire campaigns from a single brief is a massive time-saver for busy agencies."
-    }
-  ];
-
-  for (const prod of extraProducts) {
-    await storage.createProduct(prod);
-    await storage.createAffiliateLink({
-      slug: prod.affiliateSlug,
-      url: `https://example.com/aff/${prod.affiliateSlug}?ref=MYID`,
-      program: `${prod.name} Partners`,
-      commission: "30%",
-      cookieDays: 45
-    });
-  }
 
   await seedDatabase();
 
@@ -162,39 +92,123 @@ async function seedDatabase() {
   const vpnCategory = await storage.createCategory({
     slug: "vpn",
     name: "VPNs",
-    title: "Best VPN Services",
-    description: "We tested 15+ services to find the best VPNs for speed, security, and streaming.",
+    title: "Best VPN Services of 2026",
+    description: "We rigorously tested 20+ VPNs for speed, privacy, and streaming. Here are the top picks for total digital anonymity.",
     icon: "Shield"
   });
 
-  const catId = vpnCategory.id;
+  const antivirusCategory = await storage.createCategory({
+    slug: "antivirus",
+    name: "Antivirus",
+    title: "Best Antivirus Software 2026",
+    description: "Protect your devices from malware, ransomware, and phishing with our expert-tested security suites.",
+    icon: "Lock"
+  });
+
+  const passwordManagerCategory = await storage.createCategory({
+    slug: "password-manager",
+    name: "Password Managers",
+    title: "Top-Rated Password Managers",
+    description: "Stop reusing passwords. Secure your digital life with the most reliable vault solutions on the market.",
+    icon: "Key"
+  });
+
+  const hostingCategory = await storage.createCategory({
+    slug: "hosting",
+    name: "Web Hosting",
+    title: "Best Web Hosting Providers",
+    description: "From shared hosting to dedicated servers, we found the providers with 99.9% uptime and lightning speeds.",
+    icon: "Server"
+  });
+
+  const vId = vpnCategory.id;
+  const avId = antivirusCategory.id;
+  const pmId = passwordManagerCategory.id;
+  const hId = hostingCategory.id;
 
   const productsData = [
     {
-      categoryId: catId,
+      categoryId: vId,
       slug: "nordvpn",
       name: "NordVPN",
       logo: "https://upload.wikimedia.org/wikipedia/commons/4/41/NordVPN_logo.svg",
-      rating: "4.8",
+      rating: "4.9",
       price: "$3.99/mo",
       originalPrice: "$11.99/mo",
       discount: "67%",
       affiliateSlug: "nordvpn",
       badge: "🏆 Editor's Choice",
-      shortDescription: "The best all-around VPN for speed and security.",
-      features: ["A-E-256 Encryption", "Threat Protection", "Strict No-logs Policy", "Meshnet", "Dark Web Monitor"],
-      pros: ["Fastest speeds", "Great security features", "Easy to use", "Unblocks Netflix reliable"],
-      cons: ["Map interface can be clunky", "Linux app has no GUI"],
-      bestFor: "Best overall VPN for security, speed, and streaming.",
-      scores: { speed: 95, security: 98, value: 92, ease: 90 },
-      detailedReview: "NordVPN is our top pick because it consistently delivers the fastest speeds and strongest security features. With servers in 60+ countries, it's perfect for unblocking geo-restricted content.\n\nIts Threat Protection feature goes beyond a normal VPN by blocking malware, ads, and trackers before they can even reach your device."
+      shortDescription: "The gold standard for privacy and blazing-fast speeds.",
+      features: ["Double VPN", "Onion Over VPN", "Threat Protection Pro", "6000+ Servers", "Meshnet", "Dark Web Monitor"],
+      pros: ["Fastest speeds tested", "Audited no-logs policy", "Unblocks 15+ Netflix regions", "Excellent 24/7 support"],
+      cons: ["Renewal price increase", "Map UI takes up space"],
+      bestFor: "Power users who want the absolute best security and speed combo.",
+      scores: { speed: 98, security: 99, value: 92, ease: 94 },
+      detailedReview: "NordVPN continues to lead the pack in 2026 with its revolutionary NordLynx protocol. It's not just a VPN; it's a complete security suite that blocks trackers and malware before they reach your device."
     },
     {
-      categoryId: catId,
+      categoryId: avId,
+      slug: "bitdefender",
+      name: "Bitdefender",
+      logo: "https://upload.wikimedia.org/wikipedia/en/2/2a/Bitdefender_Logo.png",
+      rating: "4.8",
+      price: "$29.99/yr",
+      originalPrice: "$84.99/yr",
+      discount: "65%",
+      affiliateSlug: "bitdefender",
+      badge: "🛡️ Maximum Protection",
+      shortDescription: "Award-winning malware detection with minimal system impact.",
+      features: ["Real-time Data Protection", "Advanced Threat Defense", "Anti-tracker", "VPN Included", "Microphone Monitor"],
+      pros: ["Perfect malware detection scores", "Very light on system resources", "Comprehensive privacy tools", "Multi-layer ransomware protection"],
+      cons: ["VPN has daily data limit", "iOS app is limited"],
+      bestFor: "Families and users who want 'set-and-forget' ultimate security.",
+      scores: { speed: 95, security: 100, value: 90, ease: 96 },
+      detailedReview: "Bitdefender Total Security offers the most robust malware protection we've ever tested. Its Autopilot feature handles all security decisions automatically, making it perfect for non-technical users."
+    },
+    {
+      categoryId: pmId,
+      slug: "1password",
+      name: "1Password",
+      logo: "https://upload.wikimedia.org/wikipedia/commons/e/e0/1Password_logo.svg",
+      rating: "4.9",
+      price: "$2.99/mo",
+      originalPrice: "$4.99/mo",
+      discount: "40%",
+      affiliateSlug: "1password",
+      badge: "🔑 Most Secure",
+      shortDescription: "The most intuitive and secure way to manage your digital identity.",
+      features: ["Secret Key Protection", "Watchtower Security", "Travel Mode", "Unlimited Devices", "Digital Wallet"],
+      pros: ["Unique Secret Key security", "Beautiful user interface", "Excellent browser extension", "Strong family sharing"],
+      cons: ["No free tier", "Setup takes a bit longer"],
+      bestFor: "Anyone looking for the perfect balance of high security and premium design.",
+      scores: { speed: 90, security: 100, value: 88, ease: 98 },
+      detailedReview: "1Password's Secret Key adds an extra layer of protection that most competitors lack. Its Watchtower feature proactively alerts you to compromised passwords and security risks across your accounts."
+    },
+    {
+      categoryId: hId,
+      slug: "siteground",
+      name: "SiteGround",
+      logo: "https://upload.wikimedia.org/wikipedia/commons/e/ec/SiteGround_Logo.svg",
+      rating: "4.7",
+      price: "$2.99/mo",
+      originalPrice: "$14.99/mo",
+      discount: "80%",
+      affiliateSlug: "siteground",
+      badge: "🚀 Top Performance",
+      shortDescription: "Premium hosting managed on Google Cloud with top-tier support.",
+      features: ["Google Cloud Infrastructure", "Ultrafast PHP", "Free CDN", "Free SSL", "Daily Backups", "Managed WordPress"],
+      pros: ["Exceptional uptime", "Superior customer support", "Advanced caching included", "Easy staging sites"],
+      cons: ["Lower storage limits", "Renewal prices jump significantly"],
+      bestFor: "Small to medium businesses that prioritize speed and expert support.",
+      scores: { speed: 99, security: 95, value: 85, ease: 97 },
+      detailedReview: "SiteGround is our top recommendation for serious websites. Built on Google Cloud, it offers unparalleled speed and a custom management interface that makes hosting simple for everyone."
+    },
+    {
+      categoryId: vId,
       slug: "expressvpn",
       name: "ExpressVPN",
       logo: "https://upload.wikimedia.org/wikipedia/commons/2/22/ExpressVPN_logo.png",
-      rating: "4.7",
+      rating: "4.8",
       price: "$6.67/mo",
       originalPrice: "$12.95/mo",
       discount: "49%",
@@ -209,11 +223,11 @@ async function seedDatabase() {
       detailedReview: "ExpressVPN is known for its incredible speeds and ease of use. It's a premium product with a premium price tag, but for many users, the zero-hassle experience is worth the extra cost.\n\nTheir proprietary Lightway protocol ensures fast connections and low battery drain on mobile devices."
     },
     {
-      categoryId: catId,
+      categoryId: vId,
       slug: "surfshark",
       name: "Surfshark",
       logo: "https://upload.wikimedia.org/wikipedia/commons/8/86/Surfshark_logo_2021.svg",
-      rating: "4.6",
+      rating: "4.7",
       price: "$2.49/mo",
       originalPrice: "$10.99/mo",
       discount: "77%",
@@ -224,7 +238,7 @@ async function seedDatabase() {
       pros: ["Unlimited simultaneous connections", "Very affordable", "Fast WireGuard speeds", "Good unblocking"],
       cons: ["Some servers can be slow", "Customer support could be better"],
       bestFor: "Families or users with many devices on a budget.",
-      scores: { speed: 88, security: 90, value: 98, ease: 85 },
+      scores: { speed: 90, security: 92, value: 99, ease: 88 },
       detailedReview: "Surfshark shook up the VPN industry by offering unlimited simultaneous connections at an incredibly low price. It's the perfect choice for families or anyone with a lot of devices to protect.\n\nDespite the low price, it doesn't skimp on features, offering a robust ad blocker and a strict no-logs policy."
     }
   ];
