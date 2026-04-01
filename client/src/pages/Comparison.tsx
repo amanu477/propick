@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams, Link } from "wouter";
 import { useProducts, useCategory } from "@/hooks/use-products";
 import { Navbar } from "@/components/Navbar";
@@ -7,13 +8,36 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, CheckCircle2, Info, Star } from "lucide-react";
 import { motion } from "framer-motion";
 
+function TableLogo({ src, name }: { src: string; name: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed || !src) {
+    return (
+      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+        {name.charAt(0).toUpperCase()}
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={name}
+      className="w-8 h-8 object-contain rounded flex-shrink-0"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 export default function Comparison() {
   const { slug } = useParams();
   const { data: category, isLoading: isLoadingCategory } = useCategory(slug || "");
   const { data: products, isLoading: isLoadingProducts } = useProducts(slug);
 
-  // Sorting products by rating desc for rank
-  const rankedProducts = products?.sort((a, b) => Number(b.rating) - Number(a.rating));
+  // Sort by overall score (average of all 4 score dimensions)
+  const getOverallScore = (p: { scores: { speed: number; security: number; value: number; ease: number } }) =>
+    (p.scores.speed + p.scores.security + p.scores.value + p.scores.ease) / 4;
+  const rankedProducts = products
+    ? [...products].sort((a, b) => getOverallScore(b) - getOverallScore(a))
+    : undefined;
   const topPick = rankedProducts?.[0];
 
   if (isLoadingCategory || isLoadingProducts) {
@@ -117,9 +141,11 @@ export default function Comparison() {
                         key={product.id} 
                         className={`hover:bg-gray-50 transition-colors ${idx === 0 ? 'bg-yellow-50/30 border-l-4 border-l-warning' : ''}`}
                       >
-                        <td className="px-6 py-4 font-bold text-gray-900 flex items-center gap-3">
-                          <img src={product.logo} alt="" className="w-8 h-8 object-contain" />
-                          {product.name}
+                        <td className="px-6 py-4 font-bold text-gray-900">
+                          <div className="flex items-center gap-3">
+                            <TableLogo src={product.logo} name={product.name} />
+                            {product.name}
+                          </div>
                         </td>
                         <td className="px-6 py-4 font-bold text-gray-900">
                           <div className="flex items-center gap-1">
@@ -127,7 +153,7 @@ export default function Comparison() {
                             {product.rating}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-gray-600">{product.scores.speed}/10</td>
+                        <td className="px-6 py-4 text-gray-600">{product.scores.speed}/100</td>
                         <td className="px-6 py-4 text-gray-600">{product.price}</td>
                         <td className="px-6 py-4">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
