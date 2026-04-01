@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, Link } from "wouter";
 import { useProducts, useCategory } from "@/hooks/use-products";
 import { Navbar } from "@/components/Navbar";
@@ -8,9 +8,32 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, CheckCircle2, Info, Star } from "lucide-react";
 import { motion } from "framer-motion";
 
+function extractDomain(src: string): string | null {
+  try {
+    const clearbitMatch = src.match(/logo\.clearbit\.com\/([^/?]+)/);
+    if (clearbitMatch) return clearbitMatch[1];
+    const url = new URL(src);
+    return url.hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
 function TableLogo({ src, name }: { src: string; name: string }) {
-  const [failed, setFailed] = useState(false);
-  if (failed || !src) {
+  const [idx, setIdx] = useState(0);
+  const urls = useMemo(() => {
+    const list: string[] = [];
+    if (src) list.push(src);
+    const domain = extractDomain(src);
+    if (domain) {
+      if (!src.includes("logo.clearbit.com")) list.push(`https://logo.clearbit.com/${domain}`);
+      list.push(`https://icons.duckduckgo.com/ip3/${domain}.ico`);
+      list.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=64`);
+    }
+    return list;
+  }, [src]);
+
+  if (idx >= urls.length) {
     return (
       <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
         {name.charAt(0).toUpperCase()}
@@ -19,10 +42,10 @@ function TableLogo({ src, name }: { src: string; name: string }) {
   }
   return (
     <img
-      src={src}
+      src={urls[idx]}
       alt={name}
       className="w-8 h-8 object-contain rounded flex-shrink-0"
-      onError={() => setFailed(true)}
+      onError={() => setIdx((i) => i + 1)}
     />
   );
 }

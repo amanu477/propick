@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ProductResponse } from "@shared/routes";
-import { Check, X, ChevronRight, Star, ExternalLink, Trophy } from "lucide-react";
+import { Check, X, Star, ExternalLink, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
@@ -19,24 +19,63 @@ const BRAND_COLORS = [
   "from-emerald-500 to-emerald-700",
 ];
 
-function ProductLogo({ src, name, rank, className = "" }: { src: string; name: string; rank: number; className?: string }) {
-  const [failed, setFailed] = useState(false);
+function extractDomain(src: string): string | null {
+  try {
+    // Handle clearbit URLs like https://logo.clearbit.com/nordvpn.com
+    const clearbitMatch = src.match(/logo\.clearbit\.com\/([^/?]+)/);
+    if (clearbitMatch) return clearbitMatch[1];
+    // Handle full URLs
+    const url = new URL(src);
+    return url.hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+function buildLogoUrls(src: string): string[] {
+  const urls: string[] = [];
+  if (src) urls.push(src);
+
+  const domain = extractDomain(src);
+  if (domain) {
+    // If the stored URL isn't already Clearbit, try Clearbit
+    if (!src.includes("logo.clearbit.com")) {
+      urls.push(`https://logo.clearbit.com/${domain}`);
+    }
+    // Always try DuckDuckGo icon (very reliable)
+    urls.push(`https://icons.duckduckgo.com/ip3/${domain}.ico`);
+    // Google favicon as last real-image fallback
+    urls.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=256`);
+  }
+
+  return urls;
+}
+
+function ProductLogo({ src, name, rank, size = "lg", className = "" }: {
+  src: string;
+  name: string;
+  rank: number;
+  size?: "sm" | "lg";
+  className?: string;
+}) {
+  const [idx, setIdx] = useState(0);
+  const urls = useMemo(() => buildLogoUrls(src), [src]);
   const color = BRAND_COLORS[rank % BRAND_COLORS.length];
 
-  if (failed || !src) {
+  if (idx >= urls.length) {
     return (
       <div className={`bg-gradient-to-br ${color} rounded-xl flex items-center justify-center text-white font-extrabold select-none ${className}`}>
-        <span className="text-3xl">{name.charAt(0).toUpperCase()}</span>
+        <span className={size === "sm" ? "text-sm" : "text-3xl"}>{name.charAt(0).toUpperCase()}</span>
       </div>
     );
   }
 
   return (
     <img
-      src={src}
+      src={urls[idx]}
       alt={name}
-      className={`object-contain mix-blend-multiply ${className}`}
-      onError={() => setFailed(true)}
+      className={`object-contain ${className}`}
+      onError={() => setIdx((i) => i + 1)}
     />
   );
 }
