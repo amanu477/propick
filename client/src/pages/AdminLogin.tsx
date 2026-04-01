@@ -27,7 +27,7 @@ export default function AdminLogin() {
         const data = await res.json();
         setError(data.message || "Invalid credentials");
       } else {
-        navigate("/admin");
+        window.location.href = "/admin";
       }
     } catch {
       setError("Something went wrong. Please try again.");

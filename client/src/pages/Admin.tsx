@@ -671,7 +671,7 @@ export default function Admin() {
 
   async function handleLogout() {
     await fetch("/api/admin/logout", { method: "POST" });
-    navigate("/admin/login");
+    window.location.href = "/admin/login";
   }
 
   if (isLoading) {
