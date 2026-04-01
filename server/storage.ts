@@ -163,6 +163,12 @@ export class DatabaseStorage implements IStorage {
     const allClicks = await db.select().from(clickLogs);
     const todayClicks = allClicks.filter(c => c.date === today);
     const links = await db.select().from(affiliateLinks);
+    const allProducts = await db.select().from(products);
+
+    const productByAffiliateSlug = new Map<string, { name: string; logo: string }>();
+    allProducts.forEach(p => {
+      productByAffiliateSlug.set(p.affiliateSlug, { name: p.name, logo: p.logo });
+    });
 
     const statsBySlug = new Map<string, { total: number, today: number }>();
     allClicks.forEach(c => {
@@ -172,11 +178,16 @@ export class DatabaseStorage implements IStorage {
       statsBySlug.set(c.slug, current);
     });
 
-    const linkStats = Array.from(statsBySlug.entries()).map(([slug, stats]) => ({
-      slug,
-      totalClicks: stats.total,
-      todayClicks: stats.today,
-    }));
+    const linkStats = Array.from(statsBySlug.entries()).map(([slug, stats]) => {
+      const product = productByAffiliateSlug.get(slug);
+      return {
+        slug,
+        totalClicks: stats.total,
+        todayClicks: stats.today,
+        productName: product?.name,
+        productLogo: product?.logo,
+      };
+    }).sort((a, b) => b.totalClicks - a.totalClicks);
 
     const estimatedRev = (allClicks.length * 0.05).toFixed(2);
 

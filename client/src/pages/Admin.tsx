@@ -72,7 +72,10 @@ function AnalyticsTab() {
 
   if (isLoading) return <div className="text-center py-12 text-gray-400">Loading analytics...</div>;
 
-  const chartData = stats?.linkStats.slice(0, 10).map((s: any) => ({ name: s.slug, clicks: s.totalClicks })) || [];
+  const chartData = stats?.linkStats.slice(0, 10).map((s: any) => ({
+    name: s.productName || s.slug,
+    clicks: s.totalClicks,
+  })) || [];
 
   return (
     <div className="space-y-6">
@@ -101,7 +104,7 @@ function AnalyticsTab() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>Top Performing Links</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Top Performing Products</CardTitle></CardHeader>
           <CardContent>
             <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -118,25 +121,71 @@ function AnalyticsTab() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Recent Activity</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Top Products by Clicks</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-3">
               {stats?.linkStats.slice(0, 6).map((stat: any, i: number) => (
                 <div key={stat.slug} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
                   <div className="flex items-center gap-2">
                     <div className="font-bold text-gray-400 w-4 text-sm">{i + 1}</div>
+                    {stat.productLogo && (
+                      <img src={stat.productLogo} alt={stat.productName} className="w-6 h-6 object-contain rounded" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    )}
                     <div>
-                      <div className="font-medium text-sm capitalize">{stat.slug}</div>
-                      <div className="text-xs text-gray-400">{stat.todayClicks} today</div>
+                      <div className="font-medium text-sm">{stat.productName || stat.slug}</div>
+                      <div className="text-xs text-gray-400">/go/{stat.slug} · {stat.todayClicks} today</div>
                     </div>
                   </div>
                   <div className="font-bold text-sm">{stat.totalClicks}</div>
                 </div>
               ))}
+              {(!stats?.linkStats || stats.linkStats.length === 0) && (
+                <div className="text-center py-6 text-gray-400 text-sm">No clicks recorded yet</div>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Per-product breakdown table */}
+      {stats?.linkStats?.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Affiliate Link Performance</CardTitle></CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-gray-500">
+                    <th className="text-left pb-2 font-medium">Product</th>
+                    <th className="text-left pb-2 font-medium">Affiliate Link</th>
+                    <th className="text-right pb-2 font-medium">Today</th>
+                    <th className="text-right pb-2 font-medium">Total Clicks</th>
+                    <th className="text-right pb-2 font-medium">Est. Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.linkStats.map((stat: any) => (
+                    <tr key={stat.slug} className="border-b last:border-0 hover:bg-gray-50">
+                      <td className="py-2.5">
+                        <div className="flex items-center gap-2">
+                          {stat.productLogo && (
+                            <img src={stat.productLogo} alt={stat.productName} className="w-6 h-6 object-contain rounded" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          )}
+                          <span className="font-medium">{stat.productName || <span className="text-gray-400 italic">Unknown</span>}</span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 text-blue-600">/go/{stat.slug}</td>
+                      <td className="py-2.5 text-right">{stat.todayClicks}</td>
+                      <td className="py-2.5 text-right font-semibold">{stat.totalClicks}</td>
+                      <td className="py-2.5 text-right text-green-600">${(stat.totalClicks * 0.05).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
@@ -246,6 +295,9 @@ function ProductsTab() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<Product | null>(null);
+  const [showNewLink, setShowNewLink] = useState(false);
+  const emptyNewLink = { url: "", program: "", commission: "", cookieDays: "30" };
+  const [newLinkForm, setNewLinkForm] = useState(emptyNewLink);
 
   const emptyForm = {
     categoryId: "", slug: "", name: "", logo: "", rating: "", price: "", originalPrice: "",
@@ -265,6 +317,16 @@ function ProductsTab() {
     queryFn: () => apiFetch("/api/admin/categories"),
   });
 
+  const { data: affiliateLinks = [] } = useQuery<AffiliateLink[]>({
+    queryKey: ["/api/admin/affiliate-links"],
+    queryFn: () => apiFetch("/api/admin/affiliate-links"),
+  });
+
+  const createLinkMut = useMutation({
+    mutationFn: (data: any) => apiFetch("/api/admin/affiliate-links", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/affiliate-links"] }); },
+  });
+
   const createMut = useMutation({
     mutationFn: (data: any) => apiFetch("/api/admin/products", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/products"] }); setCreating(false); },
@@ -280,7 +342,7 @@ function ProductsTab() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/products"] }); setDeleting(null); },
   });
 
-  function openCreate() { setForm(emptyForm); setCreating(true); }
+  function openCreate() { setForm(emptyForm); setShowNewLink(false); setNewLinkForm(emptyNewLink); setCreating(true); }
   function openEdit(p: Product) {
     setForm({
       categoryId: String(p.categoryId), slug: p.slug, name: p.name, logo: p.logo,
@@ -290,7 +352,26 @@ function ProductsTab() {
       cons: (p.cons as string[]).join("\n"), bestFor: p.bestFor,
       scores: JSON.stringify(p.scores), detailedReview: p.detailedReview,
     });
+    setShowNewLink(false);
+    setNewLinkForm(emptyNewLink);
     setEditing(p);
+  }
+
+  async function handleSubmit(isCreating: boolean) {
+    if (showNewLink && newLinkForm.url && form.affiliateSlug) {
+      await createLinkMut.mutateAsync({
+        slug: form.affiliateSlug,
+        url: newLinkForm.url,
+        program: newLinkForm.program || form.name,
+        commission: newLinkForm.commission || "0%",
+        cookieDays: newLinkForm.cookieDays,
+      });
+    }
+    if (isCreating) {
+      createMut.mutate(form);
+    } else {
+      updateMut.mutate({ id: editing!.id, data: form });
+    }
   }
 
   const catMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
@@ -298,7 +379,7 @@ function ProductsTab() {
     ["categoryId", "Category", "select"], ["slug", "Slug", "text"], ["name", "Product Name", "text"],
     ["logo", "Logo URL", "text"], ["rating", "Rating (e.g. 4.9)", "text"],
     ["price", "Price (e.g. $3.99/mo)", "text"], ["originalPrice", "Original Price", "text"],
-    ["discount", "Discount (e.g. 67%)", "text"], ["affiliateSlug", "Affiliate Slug", "text"],
+    ["discount", "Discount (e.g. 67%)", "text"], ["affiliateSlug", "Affiliate Link", "affiliate-select"],
     ["badge", "Badge (optional)", "text"], ["shortDescription", "Short Description", "text"],
     ["bestFor", "Best For", "text"], ["features", "Features (one per line)", "textarea"],
     ["pros", "Pros (one per line)", "textarea"], ["cons", "Cons (one per line)", "textarea"],
@@ -306,7 +387,9 @@ function ProductsTab() {
     ["detailedReview", "Detailed Review", "textarea"],
   ];
 
-  const ProductForm = ({ onSubmit, loading }: { onSubmit: () => void; loading: boolean }) => (
+  const isSubmitting = createMut.isPending || updateMut.isPending || createLinkMut.isPending;
+
+  const ProductForm = ({ isCreating }: { isCreating: boolean }) => (
     <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
       {fields.map(([key, label, type]) => (
         <div key={key} className="space-y-1">
@@ -320,6 +403,74 @@ function ProductsTab() {
               <option value="">Select category</option>
               {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
+          ) : type === "affiliate-select" ? (
+            <div className="space-y-2">
+              <select
+                className="w-full border rounded-md px-3 py-2 text-sm"
+                value={showNewLink ? "__new__" : (form.affiliateSlug || "")}
+                onChange={(e) => {
+                  if (e.target.value === "__new__") {
+                    setShowNewLink(true);
+                  } else {
+                    setShowNewLink(false);
+                    setForm(f => ({ ...f, affiliateSlug: e.target.value }));
+                  }
+                }}
+              >
+                <option value="">Select existing affiliate link</option>
+                {affiliateLinks.map((l) => (
+                  <option key={l.id} value={l.slug}>/go/{l.slug} — {l.program}</option>
+                ))}
+                <option value="__new__">+ Create new affiliate link...</option>
+              </select>
+              {showNewLink && (
+                <div className="border border-blue-200 rounded-lg p-3 bg-blue-50 space-y-2">
+                  <div className="text-xs font-semibold text-blue-700 mb-1">New Affiliate Link</div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Slug (used in /go/slug)</Label>
+                    <Input
+                      placeholder="e.g. nordvpn"
+                      value={form.affiliateSlug}
+                      onChange={(e) => setForm(f => ({ ...f, affiliateSlug: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Destination URL</Label>
+                    <Input
+                      placeholder="https://example.com/aff?ref=..."
+                      value={newLinkForm.url}
+                      onChange={(e) => setNewLinkForm(f => ({ ...f, url: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Program Name</Label>
+                      <Input
+                        placeholder="e.g. NordVPN Partners"
+                        value={newLinkForm.program}
+                        onChange={(e) => setNewLinkForm(f => ({ ...f, program: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Commission</Label>
+                      <Input
+                        placeholder="e.g. 40%"
+                        value={newLinkForm.commission}
+                        onChange={(e) => setNewLinkForm(f => ({ ...f, commission: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Cookie Days</Label>
+                    <Input
+                      placeholder="30"
+                      value={newLinkForm.cookieDays}
+                      onChange={(e) => setNewLinkForm(f => ({ ...f, cookieDays: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           ) : type === "textarea" ? (
             <textarea
               rows={3}
@@ -334,7 +485,9 @@ function ProductsTab() {
       ))}
       <div className="flex gap-2 justify-end pt-2 sticky bottom-0 bg-white pb-1">
         <Button variant="outline" onClick={() => { setCreating(false); setEditing(null); }}>Cancel</Button>
-        <Button onClick={onSubmit} disabled={loading}>{loading ? "Saving..." : "Save"}</Button>
+        <Button onClick={() => handleSubmit(isCreating)} disabled={isSubmitting}>
+          {isSubmitting ? "Saving..." : "Save"}
+        </Button>
       </div>
     </div>
   );
@@ -374,10 +527,7 @@ function ProductsTab() {
         <Dialog open>
           <DialogContent className="max-w-2xl">
             <DialogHeader><DialogTitle>{creating ? "New Product" : `Edit: ${editing?.name}`}</DialogTitle></DialogHeader>
-            <ProductForm
-              onSubmit={() => creating ? createMut.mutate(form) : updateMut.mutate({ id: editing!.id, data: form })}
-              loading={createMut.isPending || updateMut.isPending}
-            />
+            <ProductForm isCreating={!!creating} />
           </DialogContent>
         </Dialog>
       )}

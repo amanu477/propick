@@ -103,6 +103,8 @@ export interface LinkStats {
   slug: string;
   totalClicks: number;
   todayClicks: number;
+  productName?: string;
+  productLogo?: string;
 }
 
 export interface DashboardStats {
