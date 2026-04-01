@@ -225,10 +225,10 @@ Return ONLY a valid JSON object with exactly this structure (no markdown, no cod
 Be realistic and accurate. Use real product data if you know it. Make all scores between 75-99. Make the review sound professional and trustworthy.`;
 
       const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
+        model: "gpt-4o",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
-        max_completion_tokens: 2000,
+        max_tokens: 2000,
       });
 
       const raw = response.choices[0]?.message?.content || "{}";

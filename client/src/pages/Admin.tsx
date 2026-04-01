@@ -15,7 +15,7 @@ import {
   Shield, LogOut, Plus, Pencil, Trash2, MousePointerClick,
   TrendingUp, Link as LinkIcon, DollarSign, LayoutDashboard,
   Tag, Package, ExternalLink, List, Sparkles, Loader2,
-  Zap, CheckCircle, XCircle, Clock, Copy, Check
+  Zap, CheckCircle, XCircle, Clock, Copy, Check, Download
 } from "lucide-react";
 import type { Category, Product, AffiliateLink, LinkBioCategory, LinkBioItem, PendingProduct } from "@shared/schema";
 
@@ -929,6 +929,87 @@ function AutomationTab() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const downloadN8nWorkflow = () => {
+    const workflow = {
+      name: "ProPicks — Auto Product Import",
+      nodes: [
+        {
+          parameters: { rule: { interval: [{ field: "cronExpression", expression: "0 8 * * *" }] } },
+          id: "1", name: "Schedule Trigger", type: "n8n-nodes-base.scheduleTrigger", typeVersion: 1.2, position: [0, 300],
+        },
+        {
+          parameters: {
+            url: `${window.location.origin}/api/categories`,
+            options: {},
+          },
+          id: "2", name: "Get Categories", type: "n8n-nodes-base.httpRequest", typeVersion: 4.2, position: [220, 300],
+        },
+        {
+          parameters: {
+            jsCode: `// Add your product data source here.\n// Example: return items from an affiliate API or a hardcoded list.\nconst categories = $input.all().map(i => i.json);\nconst products = [\n  { productName: "NordVPN", category: "VPNs", price: "$3.99/mo", rating: 4.9 },\n  { productName: "ExpressVPN", category: "VPNs", price: "$6.67/mo", rating: 4.7 },\n];\nreturn products.map(p => ({ json: p }));`,
+          },
+          id: "3", name: "Prepare Product List", type: "n8n-nodes-base.code", typeVersion: 2, position: [440, 300],
+        },
+        {
+          parameters: {
+            resource: "chat",
+            model: "gpt-4o",
+            messages: {
+              values: [
+                {
+                  role: "user",
+                  content: `You are a product review expert for an affiliate marketing site.\nWrite a review for: {{$json.productName}} (Category: {{$json.category}})\nPrice: {{$json.price}} | Rating: {{$json.rating}}/5\n\nReturn ONLY valid JSON:\n{\n  "name": "Product Name",\n  "slug": "product-slug",\n  "shortDescription": "1-2 sentence summary",\n  "detailedReview": "3-4 paragraph honest review",\n  "pros": ["Pro 1", "Pro 2", "Pro 3"],\n  "cons": ["Con 1", "Con 2"],\n  "bestFor": "Who this is best for",\n  "features": ["Feature 1", "Feature 2", "Feature 3"],\n  "badge": "Best Value",\n  "scores": {"speed": 88, "security": 92, "value": 85, "ease": 90}\n}`,
+                },
+              ],
+            },
+            options: { responseFormat: "json_object" },
+          },
+          id: "4", name: "AI Generate Review", type: "@n8n/n8n-nodes-langchain.openAi", typeVersion: 1.8, position: [660, 300],
+        },
+        {
+          parameters: {
+            jsCode: `const aiText = $json.message?.content || $json.choices?.[0]?.message?.content || "{}";\nconst ai = JSON.parse(aiText);\nconst src = $('Prepare Product List').first().json;\nreturn [{\n  json: {\n    ...ai,\n    categoryId: 1,\n    price: src.price,\n    rating: String(src.rating),\n    affiliateSlug: ai.slug,\n    affiliateUrl: "https://example.com/aff/" + ai.slug,\n    affiliateProgram: ai.name + " Partners",\n    commission: "40%",\n    cookieDays: 30,\n    source: "n8n",\n  }\n}];`,
+          },
+          id: "5", name: "Format for Webhook", type: "n8n-nodes-base.code", typeVersion: 2, position: [880, 300],
+        },
+        {
+          parameters: {
+            method: "POST",
+            url: webhookUrl,
+            authentication: "genericCredentialType",
+            genericAuthType: "httpHeaderAuth",
+            sendBody: true,
+            contentType: "json",
+            body: { mode: "raw", raw: "={{ $json }}" },
+            options: {},
+          },
+          id: "6", name: "Send to ProPicks", type: "n8n-nodes-base.httpRequest", typeVersion: 4.2, position: [1100, 300],
+        },
+      ],
+      connections: {
+        "Schedule Trigger": { main: [[{ node: "Get Categories", type: "main", index: 0 }]] },
+        "Get Categories": { main: [[{ node: "Prepare Product List", type: "main", index: 0 }]] },
+        "Prepare Product List": { main: [[{ node: "AI Generate Review", type: "main", index: 0 }]] },
+        "AI Generate Review": { main: [[{ node: "Format for Webhook", type: "main", index: 0 }]] },
+        "Format for Webhook": { main: [[{ node: "Send to ProPicks", type: "main", index: 0 }]] },
+      },
+      pinData: {},
+      settings: { executionOrder: "v1" },
+      staticData: null,
+      tags: [],
+      triggerCount: 0,
+      updatedAt: new Date().toISOString(),
+      versionId: "1",
+    };
+    const blob = new Blob([JSON.stringify(workflow, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "propicks-n8n-workflow.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const statusBadge = (status: string) => {
     if (status === "pending") return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200"><Clock className="w-3 h-3 mr-1" />Pending</Badge>;
     if (status === "approved") return <Badge className="bg-green-100 text-green-800 border-green-200"><CheckCircle className="w-3 h-3 mr-1" />Approved</Badge>;
@@ -980,11 +1061,16 @@ function AutomationTab() {
           <div className="bg-gray-50 rounded-lg p-4 text-sm space-y-3 font-mono">
             <div><span className="text-purple-600 font-bold">Step 1 — Trigger:</span> Schedule Trigger → every day at 8am</div>
             <div><span className="text-purple-600 font-bold">Step 2 — Get Categories:</span> HTTP Request → GET {window.location.origin}/api/categories</div>
-            <div><span className="text-purple-600 font-bold">Step 3 — Fetch Products:</span> HTTP Request → affiliate API (CJ, Impact, ShareASale)</div>
-            <div><span className="text-purple-600 font-bold">Step 4 — AI Review:</span> OpenAI Chat → generate title, description, pros/cons</div>
-            <div><span className="text-purple-600 font-bold">Step 5 — Send Here:</span> HTTP Request → POST {webhookUrl}</div>
+            <div><span className="text-purple-600 font-bold">Step 3 — Fetch Products:</span> Code node → add your product list or affiliate API</div>
+            <div><span className="text-purple-600 font-bold">Step 4 — AI Review:</span> OpenAI node (gpt-4o) → generate review JSON</div>
+            <div><span className="text-purple-600 font-bold">Step 5 — Format:</span> Code node → map fields to webhook format</div>
+            <div><span className="text-purple-600 font-bold">Step 6 — Send Here:</span> HTTP Request → POST {webhookUrl}</div>
             <div className="text-xs text-gray-500">Add header: <code>x-api-key: your_WEBHOOK_API_KEY</code></div>
           </div>
+          <Button onClick={downloadN8nWorkflow} className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+            <Download className="w-4 h-4 mr-2" /> Download n8n Workflow JSON
+          </Button>
+          <p className="text-xs text-gray-400">Import this file directly into n8n (Workflows → Import from file). Then set your OpenAI credentials and add your WEBHOOK_API_KEY as an HTTP Header Auth credential named "ProPicks API Key".</p>
           <div className="bg-blue-50 rounded-lg p-4 text-sm">
             <p className="font-semibold text-blue-800 mb-2">AI Prompt Template (paste in n8n OpenAI node):</p>
             <pre className="text-xs text-blue-700 whitespace-pre-wrap">{`You are a product review expert for an affiliate marketing site.
