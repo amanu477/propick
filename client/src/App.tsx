@@ -5,11 +5,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 
-// Page Imports
 import Home from "@/pages/Home";
 import Comparison from "@/pages/Comparison";
 import LinkBio from "@/pages/LinkBio";
-import Dashboard from "@/pages/Dashboard";
+import AdminLogin from "@/pages/AdminLogin";
+import Admin from "@/pages/Admin";
 
 function Router() {
   return (
@@ -17,9 +17,8 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/best/:slug" component={Comparison} />
       <Route path="/links" component={LinkBio} />
-      <Route path="/dashboard" component={Dashboard} />
-      
-      {/* Fallback to 404 */}
+      <Route path="/admin/login" component={AdminLogin} />
+      <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>
   );

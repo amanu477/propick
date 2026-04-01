@@ -4,9 +4,9 @@ import { z } from "zod";
 
 export const categories = pgTable("categories", {
   id: serial("id").primaryKey(),
-  slug: text("slug").notNull().unique(), // e.g. "vpn"
+  slug: text("slug").notNull().unique(),
   name: text("name").notNull(),
-  title: text("title").notNull(), // e.g. "Best VPN Services"
+  title: text("title").notNull(),
   description: text("description").notNull(),
   icon: text("icon").notNull(),
 });
@@ -14,7 +14,7 @@ export const categories = pgTable("categories", {
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   categoryId: integer("category_id").notNull(),
-  slug: text("slug").notNull().unique(), // e.g. "nordvpn"
+  slug: text("slug").notNull().unique(),
   name: text("name").notNull(),
   logo: text("logo").notNull(),
   rating: text("rating").notNull(),
@@ -45,7 +45,7 @@ export const clickLogs = pgTable("click_logs", {
   id: serial("id").primaryKey(),
   slug: text("slug").notNull(),
   timestamp: timestamp("timestamp").defaultNow().notNull(),
-  date: text("date").notNull(), // YYYY-MM-DD
+  date: text("date").notNull(),
   userAgent: text("user_agent"),
   referer: text("referer"),
   country: text("country"),
@@ -68,12 +68,20 @@ export const linkBioItems = pgTable("link_bio_items", {
   sortOrder: integer("sort_order").notNull(),
 });
 
+export const adminUsers = pgTable("admin_users", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true });
 export const insertAffiliateLinkSchema = createInsertSchema(affiliateLinks).omit({ id: true });
 export const insertClickLogSchema = createInsertSchema(clickLogs).omit({ id: true, timestamp: true });
 export const insertLinkBioCategorySchema = createInsertSchema(linkBioCategories).omit({ id: true });
 export const insertLinkBioItemSchema = createInsertSchema(linkBioItems).omit({ id: true });
+export const insertAdminUserSchema = createInsertSchema(adminUsers).omit({ id: true, createdAt: true });
 
 export type Category = typeof categories.$inferSelect;
 export type Product = typeof products.$inferSelect;
@@ -81,6 +89,7 @@ export type AffiliateLink = typeof affiliateLinks.$inferSelect;
 export type ClickLog = typeof clickLogs.$inferSelect;
 export type LinkBioCategory = typeof linkBioCategories.$inferSelect;
 export type LinkBioItem = typeof linkBioItems.$inferSelect;
+export type AdminUser = typeof adminUsers.$inferSelect;
 
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
@@ -88,6 +97,7 @@ export type InsertAffiliateLink = z.infer<typeof insertAffiliateLinkSchema>;
 export type InsertClickLog = z.infer<typeof insertClickLogSchema>;
 export type InsertLinkBioCategory = z.infer<typeof insertLinkBioCategorySchema>;
 export type InsertLinkBioItem = z.infer<typeof insertLinkBioItemSchema>;
+export type InsertAdminUser = z.infer<typeof insertAdminUserSchema>;
 
 export interface LinkStats {
   slug: string;
