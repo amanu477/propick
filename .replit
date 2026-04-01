@@ -40,3 +40,8 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_openai_ai_integrations:2.0.0"]
+
+[userenv]
+
+[userenv.shared]
+WEBHOOK_API_KEY = "whk_8b25ecced9ec1160e20e0fe734161bef3aba4376f3a3709b"

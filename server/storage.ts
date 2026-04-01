@@ -1,8 +1,8 @@
 import { db } from "./db";
 import {
-  categories, products, affiliateLinks, clickLogs, linkBioCategories, linkBioItems, adminUsers,
-  type Category, type Product, type AffiliateLink, type ClickLog, type LinkBioCategory, type LinkBioItem, type AdminUser,
-  type InsertCategory, type InsertProduct, type InsertAffiliateLink, type InsertClickLog, type InsertLinkBioCategory, type InsertLinkBioItem, type InsertAdminUser
+  categories, products, affiliateLinks, clickLogs, linkBioCategories, linkBioItems, adminUsers, pendingProducts,
+  type Category, type Product, type AffiliateLink, type ClickLog, type LinkBioCategory, type LinkBioItem, type AdminUser, type PendingProduct,
+  type InsertCategory, type InsertProduct, type InsertAffiliateLink, type InsertClickLog, type InsertLinkBioCategory, type InsertLinkBioItem, type InsertAdminUser, type InsertPendingProduct
 } from "@shared/schema";
 import { eq, desc, asc } from "drizzle-orm";
 
@@ -53,6 +53,14 @@ export interface IStorage {
   getAdminByUsername(username: string): Promise<AdminUser | undefined>;
   getAdminById(id: number): Promise<AdminUser | undefined>;
   createAdminUser(user: InsertAdminUser): Promise<AdminUser>;
+
+  // Pending Products (n8n automation queue)
+  getPendingProducts(status?: string): Promise<PendingProduct[]>;
+  getPendingProductById(id: number): Promise<PendingProduct | undefined>;
+  createPendingProduct(product: InsertPendingProduct): Promise<PendingProduct>;
+  approvePendingProduct(id: number): Promise<Product>;
+  rejectPendingProduct(id: number): Promise<void>;
+  deletePendingProduct(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -269,6 +277,74 @@ export class DatabaseStorage implements IStorage {
   async createAdminUser(user: InsertAdminUser): Promise<AdminUser> {
     const [newUser] = await db.insert(adminUsers).values(user).returning();
     return newUser;
+  }
+
+  // ─── Pending Products ──────────────────────────────────────────────────────
+
+  async getPendingProducts(status?: string): Promise<PendingProduct[]> {
+    const all = await db.select().from(pendingProducts).orderBy(desc(pendingProducts.createdAt));
+    return status ? all.filter(p => p.status === status) : all;
+  }
+
+  async getPendingProductById(id: number): Promise<PendingProduct | undefined> {
+    const [p] = await db.select().from(pendingProducts).where(eq(pendingProducts.id, id));
+    return p;
+  }
+
+  async createPendingProduct(product: InsertPendingProduct): Promise<PendingProduct> {
+    const [newPending] = await db.insert(pendingProducts).values(product).returning();
+    return newPending;
+  }
+
+  async approvePendingProduct(id: number): Promise<Product> {
+    const pending = await this.getPendingProductById(id);
+    if (!pending) throw new Error("Pending product not found");
+
+    const existingLink = await this.getAffiliateLinkBySlug(pending.affiliateSlug);
+    if (!existingLink) {
+      await this.createAffiliateLink({
+        slug: pending.affiliateSlug,
+        url: pending.affiliateUrl || `https://example.com/aff/${pending.affiliateSlug}`,
+        program: pending.affiliateProgram || `${pending.name} Partners`,
+        commission: pending.commission,
+        cookieDays: pending.cookieDays,
+      });
+    }
+
+    let slug = pending.slug;
+    const existingProduct = await this.getProductBySlug(slug);
+    if (existingProduct) slug = `${slug}-${Date.now()}`;
+
+    const product = await this.createProduct({
+      categoryId: pending.categoryId,
+      slug,
+      name: pending.name,
+      logo: pending.logo,
+      rating: pending.rating,
+      price: pending.price,
+      originalPrice: pending.originalPrice,
+      discount: pending.discount,
+      affiliateSlug: pending.affiliateSlug,
+      badge: pending.badge,
+      shortDescription: pending.shortDescription,
+      features: pending.features as string[],
+      pros: pending.pros as string[],
+      cons: pending.cons as string[],
+      bestFor: pending.bestFor,
+      scores: pending.scores as { speed: number; security: number; value: number; ease: number },
+      detailedReview: pending.detailedReview,
+    });
+
+    await db.update(pendingProducts).set({ status: "approved" }).where(eq(pendingProducts.id, id));
+    return product;
+  }
+
+  async rejectPendingProduct(id: number): Promise<void> {
+    await db.update(pendingProducts).set({ status: "rejected" }).where(eq(pendingProducts.id, id));
+  }
+
+  async deletePendingProduct(id: number): Promise<void> {
+    await db.delete(pendingProducts).where(eq(pendingProducts.id, id));
   }
 }
 

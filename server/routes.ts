@@ -392,6 +392,101 @@ Be realistic and accurate. Use real product data if you know it. Make all scores
     }
   });
 
+  // ─── Public Webhook: n8n → Pending Queue ────────────────────────────────────
+
+  app.post("/api/webhook/products", async (req, res) => {
+    const apiKey = req.headers["x-api-key"] || req.headers["authorization"]?.replace("Bearer ", "");
+    if (!apiKey || apiKey !== process.env.WEBHOOK_API_KEY) {
+      return res.status(401).json({ message: "Invalid or missing API key" });
+    }
+
+    try {
+      const body = req.body;
+      const products = Array.isArray(body) ? body : [body];
+      const created: any[] = [];
+
+      for (const item of products) {
+        if (!item.name || !item.categoryId) continue;
+
+        if (typeof item.features === "string") item.features = item.features.split("\n").filter(Boolean);
+        if (typeof item.pros === "string") item.pros = item.pros.split("\n").filter(Boolean);
+        if (typeof item.cons === "string") item.cons = item.cons.split("\n").filter(Boolean);
+        if (typeof item.scores === "string") item.scores = JSON.parse(item.scores);
+        if (typeof item.categoryId === "string") item.categoryId = parseInt(item.categoryId);
+        if (typeof item.cookieDays === "string") item.cookieDays = parseInt(item.cookieDays);
+
+        const slug = item.slug || item.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        const affiliateSlug = item.affiliateSlug || slug;
+
+        const pending = await storage.createPendingProduct({
+          categoryId: item.categoryId,
+          name: item.name,
+          slug,
+          logo: item.logo || "",
+          rating: item.rating || "4.5",
+          price: item.price || "N/A",
+          originalPrice: item.originalPrice || item.price || "N/A",
+          discount: item.discount || "0%",
+          affiliateSlug,
+          affiliateUrl: item.affiliateUrl || item.url || "",
+          affiliateProgram: item.affiliateProgram || item.program || `${item.name} Partners`,
+          commission: item.commission || "0%",
+          cookieDays: item.cookieDays || 30,
+          badge: item.badge || null,
+          shortDescription: item.shortDescription || item.description || "",
+          features: Array.isArray(item.features) ? item.features : [],
+          pros: Array.isArray(item.pros) ? item.pros : [],
+          cons: Array.isArray(item.cons) ? item.cons : [],
+          bestFor: item.bestFor || "",
+          scores: item.scores || { speed: 85, security: 85, value: 85, ease: 85 },
+          detailedReview: item.detailedReview || item.review || "",
+          source: item.source || "n8n",
+          status: "pending",
+        });
+        created.push(pending);
+      }
+
+      res.status(201).json({ received: created.length, products: created });
+    } catch (err: any) {
+      console.error("Webhook error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ─── Admin: Pending Products (Approval Queue) ────────────────────────────────
+
+  app.get("/api/admin/pending-products", requireAdmin, async (req, res) => {
+    const status = req.query.status as string | undefined;
+    res.json(await storage.getPendingProducts(status));
+  });
+
+  app.post("/api/admin/pending-products/:id/approve", requireAdmin, async (req, res) => {
+    try {
+      const product = await storage.approvePendingProduct(parseInt(req.params.id));
+      res.json(product);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/admin/pending-products/:id/reject", requireAdmin, async (req, res) => {
+    try {
+      await storage.rejectPendingProduct(parseInt(req.params.id));
+      res.json({ message: "Rejected" });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/admin/pending-products/:id", requireAdmin, async (req, res) => {
+    try {
+      await storage.deletePendingProduct(parseInt(req.params.id));
+      res.json({ message: "Deleted" });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
   // ─── Seed ───────────────────────────────────────────────────────────────────
 
   await seedDatabase();
