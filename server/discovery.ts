@@ -1,5 +1,5 @@
 import { storage } from "./storage";
-import { getOpenAI } from "./openai";
+import { getAIClient } from "./openai";
 
 export interface DiscoveryProgress {
   type: "start" | "category" | "product" | "skip" | "error" | "done";
@@ -19,7 +19,7 @@ async function discoverProductsForCategory(
   existingNames: string[],
   onProgress: ProgressCallback
 ): Promise<number> {
-  const openai = getOpenAI();
+  const { client: openai, model } = getAIClient();
 
   const skipList = existingNames.length > 0
     ? `Skip these already-listed products: ${existingNames.join(", ")}.`
@@ -40,7 +40,7 @@ Focus on: ${categoryDescription}
 Return exactly 5 products. No markdown, no explanation, just the JSON array.`;
 
   const listResponse = await openai.chat.completions.create({
-    model: "gpt-4o",
+    model,
     messages: [{ role: "user", content: listPrompt }],
     response_format: { type: "json_object" },
     max_tokens: 800,
@@ -103,7 +103,7 @@ Return ONLY a valid JSON object with exactly this structure (no markdown, no cod
 Be realistic and accurate. All scores must be between 75-99.`;
 
       const reviewResponse = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model,
         messages: [{ role: "user", content: reviewPrompt }],
         response_format: { type: "json_object" },
         max_tokens: 1500,

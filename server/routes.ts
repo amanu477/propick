@@ -4,7 +4,7 @@ import passport from "passport";
 import { storage } from "./storage";
 import { hashPassword } from "./index";
 import { api } from "@shared/routes";
-import { openai } from "./openai";
+import { getAIClient } from "./openai";
 import { runAutoDiscovery } from "./discovery";
 
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
@@ -225,8 +225,9 @@ Return ONLY a valid JSON object with exactly this structure (no markdown, no cod
 
 Be realistic and accurate. Use real product data if you know it. Make all scores between 75-99. Make the review sound professional and trustworthy.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
+      const { client: aiClient, model } = getAIClient();
+      const response = await aiClient.chat.completions.create({
+        model,
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
         max_tokens: 2000,
