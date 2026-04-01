@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,9 +14,10 @@ import {
 import {
   Shield, LogOut, Plus, Pencil, Trash2, MousePointerClick,
   TrendingUp, Link as LinkIcon, DollarSign, LayoutDashboard,
-  Tag, Package, ExternalLink, List
+  Tag, Package, ExternalLink, List, Sparkles, Loader2,
+  Zap, CheckCircle, XCircle, Clock, Copy, Check, Download
 } from "lucide-react";
-import type { Category, Product, AffiliateLink, LinkBioCategory, LinkBioItem } from "@shared/schema";
+import type { Category, Product, AffiliateLink, LinkBioCategory, LinkBioItem, PendingProduct } from "@shared/schema";
 
 // ─── Auth hook ───────────────────────────────────────────────────────────────
 
@@ -72,7 +73,10 @@ function AnalyticsTab() {
 
   if (isLoading) return <div className="text-center py-12 text-gray-400">Loading analytics...</div>;
 
-  const chartData = stats?.linkStats.slice(0, 10).map((s: any) => ({ name: s.slug, clicks: s.totalClicks })) || [];
+  const chartData = stats?.linkStats.slice(0, 10).map((s: any) => ({
+    name: s.productName || s.slug,
+    clicks: s.totalClicks,
+  })) || [];
 
   return (
     <div className="space-y-6">
@@ -101,7 +105,7 @@ function AnalyticsTab() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>Top Performing Links</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Top Performing Products</CardTitle></CardHeader>
           <CardContent>
             <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -118,25 +122,71 @@ function AnalyticsTab() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Recent Activity</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Top Products by Clicks</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-3">
               {stats?.linkStats.slice(0, 6).map((stat: any, i: number) => (
                 <div key={stat.slug} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
                   <div className="flex items-center gap-2">
                     <div className="font-bold text-gray-400 w-4 text-sm">{i + 1}</div>
+                    {stat.productLogo && (
+                      <img src={stat.productLogo} alt={stat.productName} className="w-6 h-6 object-contain rounded" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    )}
                     <div>
-                      <div className="font-medium text-sm capitalize">{stat.slug}</div>
-                      <div className="text-xs text-gray-400">{stat.todayClicks} today</div>
+                      <div className="font-medium text-sm">{stat.productName || stat.slug}</div>
+                      <div className="text-xs text-gray-400">/go/{stat.slug} · {stat.todayClicks} today</div>
                     </div>
                   </div>
                   <div className="font-bold text-sm">{stat.totalClicks}</div>
                 </div>
               ))}
+              {(!stats?.linkStats || stats.linkStats.length === 0) && (
+                <div className="text-center py-6 text-gray-400 text-sm">No clicks recorded yet</div>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Per-product breakdown table */}
+      {stats?.linkStats?.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Affiliate Link Performance</CardTitle></CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-gray-500">
+                    <th className="text-left pb-2 font-medium">Product</th>
+                    <th className="text-left pb-2 font-medium">Affiliate Link</th>
+                    <th className="text-right pb-2 font-medium">Today</th>
+                    <th className="text-right pb-2 font-medium">Total Clicks</th>
+                    <th className="text-right pb-2 font-medium">Est. Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.linkStats.map((stat: any) => (
+                    <tr key={stat.slug} className="border-b last:border-0 hover:bg-gray-50">
+                      <td className="py-2.5">
+                        <div className="flex items-center gap-2">
+                          {stat.productLogo && (
+                            <img src={stat.productLogo} alt={stat.productName} className="w-6 h-6 object-contain rounded" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          )}
+                          <span className="font-medium">{stat.productName || <span className="text-gray-400 italic">Unknown</span>}</span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 text-blue-600">/go/{stat.slug}</td>
+                      <td className="py-2.5 text-right">{stat.todayClicks}</td>
+                      <td className="py-2.5 text-right font-semibold">{stat.totalClicks}</td>
+                      <td className="py-2.5 text-right text-green-600">${(stat.totalClicks * 0.05).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
@@ -246,6 +296,12 @@ function ProductsTab() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<Product | null>(null);
+  const [showNewLink, setShowNewLink] = useState(false);
+  const emptyNewLink = { url: "", program: "", commission: "", cookieDays: "30" };
+  const [newLinkForm, setNewLinkForm] = useState(emptyNewLink);
+  const [autoGenOpen, setAutoGenOpen] = useState(false);
+  const [autoGenForm, setAutoGenForm] = useState({ categoryId: "", productName: "" });
+  const [autoGenError, setAutoGenError] = useState("");
 
   const emptyForm = {
     categoryId: "", slug: "", name: "", logo: "", rating: "", price: "", originalPrice: "",
@@ -265,6 +321,16 @@ function ProductsTab() {
     queryFn: () => apiFetch("/api/admin/categories"),
   });
 
+  const { data: affiliateLinks = [] } = useQuery<AffiliateLink[]>({
+    queryKey: ["/api/admin/affiliate-links"],
+    queryFn: () => apiFetch("/api/admin/affiliate-links"),
+  });
+
+  const createLinkMut = useMutation({
+    mutationFn: (data: any) => apiFetch("/api/admin/affiliate-links", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/affiliate-links"] }); },
+  });
+
   const createMut = useMutation({
     mutationFn: (data: any) => apiFetch("/api/admin/products", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/products"] }); setCreating(false); },
@@ -280,7 +346,19 @@ function ProductsTab() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/products"] }); setDeleting(null); },
   });
 
-  function openCreate() { setForm(emptyForm); setCreating(true); }
+  const autoGenMut = useMutation({
+    mutationFn: (data: any) => apiFetch("/api/admin/auto-generate-product", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/products"] });
+      qc.invalidateQueries({ queryKey: ["/api/admin/affiliate-links"] });
+      setAutoGenOpen(false);
+      setAutoGenForm({ categoryId: "", productName: "" });
+      setAutoGenError("");
+    },
+    onError: (err: any) => { setAutoGenError(err.message || "Generation failed. Please try again."); },
+  });
+
+  function openCreate() { setForm(emptyForm); setShowNewLink(false); setNewLinkForm(emptyNewLink); setCreating(true); }
   function openEdit(p: Product) {
     setForm({
       categoryId: String(p.categoryId), slug: p.slug, name: p.name, logo: p.logo,
@@ -290,7 +368,26 @@ function ProductsTab() {
       cons: (p.cons as string[]).join("\n"), bestFor: p.bestFor,
       scores: JSON.stringify(p.scores), detailedReview: p.detailedReview,
     });
+    setShowNewLink(false);
+    setNewLinkForm(emptyNewLink);
     setEditing(p);
+  }
+
+  async function handleSubmit(isCreating: boolean) {
+    if (showNewLink && newLinkForm.url && form.affiliateSlug) {
+      await createLinkMut.mutateAsync({
+        slug: form.affiliateSlug,
+        url: newLinkForm.url,
+        program: newLinkForm.program || form.name,
+        commission: newLinkForm.commission || "0%",
+        cookieDays: newLinkForm.cookieDays,
+      });
+    }
+    if (isCreating) {
+      createMut.mutate(form);
+    } else {
+      updateMut.mutate({ id: editing!.id, data: form });
+    }
   }
 
   const catMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
@@ -298,7 +395,7 @@ function ProductsTab() {
     ["categoryId", "Category", "select"], ["slug", "Slug", "text"], ["name", "Product Name", "text"],
     ["logo", "Logo URL", "text"], ["rating", "Rating (e.g. 4.9)", "text"],
     ["price", "Price (e.g. $3.99/mo)", "text"], ["originalPrice", "Original Price", "text"],
-    ["discount", "Discount (e.g. 67%)", "text"], ["affiliateSlug", "Affiliate Slug", "text"],
+    ["discount", "Discount (e.g. 67%)", "text"], ["affiliateSlug", "Affiliate Link", "affiliate-select"],
     ["badge", "Badge (optional)", "text"], ["shortDescription", "Short Description", "text"],
     ["bestFor", "Best For", "text"], ["features", "Features (one per line)", "textarea"],
     ["pros", "Pros (one per line)", "textarea"], ["cons", "Cons (one per line)", "textarea"],
@@ -306,7 +403,9 @@ function ProductsTab() {
     ["detailedReview", "Detailed Review", "textarea"],
   ];
 
-  const ProductForm = ({ onSubmit, loading }: { onSubmit: () => void; loading: boolean }) => (
+  const isSubmitting = createMut.isPending || updateMut.isPending || createLinkMut.isPending;
+
+  const ProductForm = ({ isCreating }: { isCreating: boolean }) => (
     <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
       {fields.map(([key, label, type]) => (
         <div key={key} className="space-y-1">
@@ -320,6 +419,74 @@ function ProductsTab() {
               <option value="">Select category</option>
               {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
+          ) : type === "affiliate-select" ? (
+            <div className="space-y-2">
+              <select
+                className="w-full border rounded-md px-3 py-2 text-sm"
+                value={showNewLink ? "__new__" : (form.affiliateSlug || "")}
+                onChange={(e) => {
+                  if (e.target.value === "__new__") {
+                    setShowNewLink(true);
+                  } else {
+                    setShowNewLink(false);
+                    setForm(f => ({ ...f, affiliateSlug: e.target.value }));
+                  }
+                }}
+              >
+                <option value="">Select existing affiliate link</option>
+                {affiliateLinks.map((l) => (
+                  <option key={l.id} value={l.slug}>/go/{l.slug} — {l.program}</option>
+                ))}
+                <option value="__new__">+ Create new affiliate link...</option>
+              </select>
+              {showNewLink && (
+                <div className="border border-blue-200 rounded-lg p-3 bg-blue-50 space-y-2">
+                  <div className="text-xs font-semibold text-blue-700 mb-1">New Affiliate Link</div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Slug (used in /go/slug)</Label>
+                    <Input
+                      placeholder="e.g. nordvpn"
+                      value={form.affiliateSlug}
+                      onChange={(e) => setForm(f => ({ ...f, affiliateSlug: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Destination URL</Label>
+                    <Input
+                      placeholder="https://example.com/aff?ref=..."
+                      value={newLinkForm.url}
+                      onChange={(e) => setNewLinkForm(f => ({ ...f, url: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Program Name</Label>
+                      <Input
+                        placeholder="e.g. NordVPN Partners"
+                        value={newLinkForm.program}
+                        onChange={(e) => setNewLinkForm(f => ({ ...f, program: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Commission</Label>
+                      <Input
+                        placeholder="e.g. 40%"
+                        value={newLinkForm.commission}
+                        onChange={(e) => setNewLinkForm(f => ({ ...f, commission: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Cookie Days</Label>
+                    <Input
+                      placeholder="30"
+                      value={newLinkForm.cookieDays}
+                      onChange={(e) => setNewLinkForm(f => ({ ...f, cookieDays: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           ) : type === "textarea" ? (
             <textarea
               rows={3}
@@ -334,7 +501,9 @@ function ProductsTab() {
       ))}
       <div className="flex gap-2 justify-end pt-2 sticky bottom-0 bg-white pb-1">
         <Button variant="outline" onClick={() => { setCreating(false); setEditing(null); }}>Cancel</Button>
-        <Button onClick={onSubmit} disabled={loading}>{loading ? "Saving..." : "Save"}</Button>
+        <Button onClick={() => handleSubmit(isCreating)} disabled={isSubmitting}>
+          {isSubmitting ? "Saving..." : "Save"}
+        </Button>
       </div>
     </div>
   );
@@ -343,7 +512,12 @@ function ProductsTab() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold">Products ({products.length})</h2>
-        <Button size="sm" onClick={openCreate}><Plus className="w-4 h-4 mr-1" /> Add Product</Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => { setAutoGenError(""); setAutoGenForm({ categoryId: "", productName: "" }); setAutoGenOpen(true); }} className="border-purple-300 text-purple-700 hover:bg-purple-50">
+            <Sparkles className="w-4 h-4 mr-1" /> AI Generate
+          </Button>
+          <Button size="sm" onClick={openCreate}><Plus className="w-4 h-4 mr-1" /> Add Product</Button>
+        </div>
       </div>
 
       <div className="grid gap-3">
@@ -374,10 +548,7 @@ function ProductsTab() {
         <Dialog open>
           <DialogContent className="max-w-2xl">
             <DialogHeader><DialogTitle>{creating ? "New Product" : `Edit: ${editing?.name}`}</DialogTitle></DialogHeader>
-            <ProductForm
-              onSubmit={() => creating ? createMut.mutate(form) : updateMut.mutate({ id: editing!.id, data: form })}
-              loading={createMut.isPending || updateMut.isPending}
-            />
+            <ProductForm isCreating={!!creating} />
           </DialogContent>
         </Dialog>
       )}
@@ -388,6 +559,61 @@ function ProductsTab() {
           onConfirm={() => deleteMut.mutate(deleting.id)}
           onCancel={() => setDeleting(null)}
         />
+      )}
+
+      {autoGenOpen && (
+        <Dialog open>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-600" />
+                AI Product Generator
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-sm text-purple-700">
+                AI will generate a complete product review including name, pricing, pros/cons, features, scores, and an affiliate link — all automatically.
+              </div>
+              <div className="space-y-1">
+                <Label>Category</Label>
+                <select
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                  value={autoGenForm.categoryId}
+                  onChange={(e) => setAutoGenForm(f => ({ ...f, categoryId: e.target.value }))}
+                >
+                  <option value="">Select a category...</option>
+                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label>Product Name <span className="text-gray-400 text-xs">(optional — leave blank to let AI decide)</span></Label>
+                <input
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                  placeholder="e.g. CyberGhost, Malwarebytes..."
+                  value={autoGenForm.productName}
+                  onChange={(e) => setAutoGenForm(f => ({ ...f, productName: e.target.value }))}
+                />
+              </div>
+              {autoGenError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">{autoGenError}</div>
+              )}
+              <div className="flex gap-2 justify-end pt-1">
+                <Button variant="outline" onClick={() => { setAutoGenOpen(false); setAutoGenError(""); }} disabled={autoGenMut.isPending}>Cancel</Button>
+                <Button
+                  onClick={() => autoGenMut.mutate(autoGenForm)}
+                  disabled={!autoGenForm.categoryId || autoGenMut.isPending}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  {autoGenMut.isPending ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</>
+                  ) : (
+                    <><Sparkles className="w-4 h-4 mr-1" /> Generate Product</>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
@@ -659,6 +885,417 @@ function LinkBioTab() {
   );
 }
 
+// ─── Automation Tab ──────────────────────────────────────────────────────────
+
+function AutomationTab() {
+  const qc = useQueryClient();
+  const [filterStatus, setFilterStatus] = useState<string>("pending");
+  const [copied, setCopied] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [discovering, setDiscovering] = useState(false);
+  const [discoveryLog, setDiscoveryLog] = useState<Array<{ type: string; message: string }>>([]);
+  const [discoveryQueued, setDiscoveryQueued] = useState<number | null>(null);
+  const logEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [discoveryLog]);
+
+  const runDiscovery = async () => {
+    setDiscovering(true);
+    setDiscoveryLog([]);
+    setDiscoveryQueued(null);
+    try {
+      const res = await fetch("/api/admin/run-discovery", { method: "POST", credentials: "include" });
+      if (!res.ok || !res.body) throw new Error("Failed to start discovery");
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            setDiscoveryLog(prev => [...prev, event]);
+            if (event.type === "done") {
+              setDiscoveryQueued(event.queued ?? 0);
+              qc.invalidateQueries({ queryKey: ["/api/admin/pending-products"] });
+            }
+          } catch {}
+        }
+      }
+    } catch (err: any) {
+      setDiscoveryLog(prev => [...prev, { type: "error", message: err.message }]);
+    } finally {
+      setDiscovering(false);
+    }
+  };
+
+  const { data: pendingList = [], isLoading } = useQuery<PendingProduct[]>({
+    queryKey: ["/api/admin/pending-products", filterStatus],
+    queryFn: () => fetch(`/api/admin/pending-products?status=${filterStatus}`, { credentials: "include" }).then(r => r.json()),
+  });
+
+  const { data: allPending = [] } = useQuery<PendingProduct[]>({
+    queryKey: ["/api/admin/pending-products", "pending"],
+    queryFn: () => fetch("/api/admin/pending-products?status=pending", { credentials: "include" }).then(r => r.json()),
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: (id: number) => fetch(`/api/admin/pending-products/${id}/approve`, { method: "POST", credentials: "include" }).then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/pending-products"] });
+      qc.invalidateQueries({ queryKey: ["/api/products"] });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (id: number) => fetch(`/api/admin/pending-products/${id}/reject`, { method: "POST", credentials: "include" }).then(r => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/pending-products"] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => fetch(`/api/admin/pending-products/${id}`, { method: "DELETE", credentials: "include" }).then(r => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/pending-products"] }),
+  });
+
+  const webhookUrl = `${window.location.origin}/api/webhook/products`;
+
+  const copyWebhook = () => {
+    navigator.clipboard.writeText(webhookUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const downloadN8nWorkflow = () => {
+    const workflow = {
+      name: "ProPicks — Auto Product Import",
+      nodes: [
+        {
+          parameters: { rule: { interval: [{ field: "cronExpression", expression: "0 8 * * *" }] } },
+          id: "1", name: "Schedule Trigger", type: "n8n-nodes-base.scheduleTrigger", typeVersion: 1.2, position: [0, 300],
+        },
+        {
+          parameters: {
+            url: `${window.location.origin}/api/categories`,
+            options: {},
+          },
+          id: "2", name: "Get Categories", type: "n8n-nodes-base.httpRequest", typeVersion: 4.2, position: [220, 300],
+        },
+        {
+          parameters: {
+            jsCode: `// Add your product data source here.\n// Example: return items from an affiliate API or a hardcoded list.\nconst categories = $input.all().map(i => i.json);\nconst products = [\n  { productName: "NordVPN", category: "VPNs", price: "$3.99/mo", rating: 4.9 },\n  { productName: "ExpressVPN", category: "VPNs", price: "$6.67/mo", rating: 4.7 },\n];\nreturn products.map(p => ({ json: p }));`,
+          },
+          id: "3", name: "Prepare Product List", type: "n8n-nodes-base.code", typeVersion: 2, position: [440, 300],
+        },
+        {
+          parameters: {
+            resource: "chat",
+            model: "gpt-4o",
+            messages: {
+              values: [
+                {
+                  role: "user",
+                  content: `You are a product review expert for an affiliate marketing site.\nWrite a review for: {{$json.productName}} (Category: {{$json.category}})\nPrice: {{$json.price}} | Rating: {{$json.rating}}/5\n\nReturn ONLY valid JSON:\n{\n  "name": "Product Name",\n  "slug": "product-slug",\n  "shortDescription": "1-2 sentence summary",\n  "detailedReview": "3-4 paragraph honest review",\n  "pros": ["Pro 1", "Pro 2", "Pro 3"],\n  "cons": ["Con 1", "Con 2"],\n  "bestFor": "Who this is best for",\n  "features": ["Feature 1", "Feature 2", "Feature 3"],\n  "badge": "Best Value",\n  "scores": {"speed": 88, "security": 92, "value": 85, "ease": 90}\n}`,
+                },
+              ],
+            },
+            options: { responseFormat: "json_object" },
+          },
+          id: "4", name: "AI Generate Review", type: "@n8n/n8n-nodes-langchain.openAi", typeVersion: 1.8, position: [660, 300],
+        },
+        {
+          parameters: {
+            jsCode: `const aiText = $json.message?.content || $json.choices?.[0]?.message?.content || "{}";\nconst ai = JSON.parse(aiText);\nconst src = $('Prepare Product List').first().json;\nreturn [{\n  json: {\n    ...ai,\n    categoryId: 1,\n    price: src.price,\n    rating: String(src.rating),\n    affiliateSlug: ai.slug,\n    affiliateUrl: "https://example.com/aff/" + ai.slug,\n    affiliateProgram: ai.name + " Partners",\n    commission: "40%",\n    cookieDays: 30,\n    source: "n8n",\n  }\n}];`,
+          },
+          id: "5", name: "Format for Webhook", type: "n8n-nodes-base.code", typeVersion: 2, position: [880, 300],
+        },
+        {
+          parameters: {
+            method: "POST",
+            url: webhookUrl,
+            authentication: "genericCredentialType",
+            genericAuthType: "httpHeaderAuth",
+            sendBody: true,
+            contentType: "json",
+            body: { mode: "raw", raw: "={{ $json }}" },
+            options: {},
+          },
+          id: "6", name: "Send to ProPicks", type: "n8n-nodes-base.httpRequest", typeVersion: 4.2, position: [1100, 300],
+        },
+      ],
+      connections: {
+        "Schedule Trigger": { main: [[{ node: "Get Categories", type: "main", index: 0 }]] },
+        "Get Categories": { main: [[{ node: "Prepare Product List", type: "main", index: 0 }]] },
+        "Prepare Product List": { main: [[{ node: "AI Generate Review", type: "main", index: 0 }]] },
+        "AI Generate Review": { main: [[{ node: "Format for Webhook", type: "main", index: 0 }]] },
+        "Format for Webhook": { main: [[{ node: "Send to ProPicks", type: "main", index: 0 }]] },
+      },
+      pinData: {},
+      settings: { executionOrder: "v1" },
+      staticData: null,
+      tags: [],
+      triggerCount: 0,
+      updatedAt: new Date().toISOString(),
+      versionId: "1",
+    };
+    const blob = new Blob([JSON.stringify(workflow, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "propicks-n8n-workflow.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const statusBadge = (status: string) => {
+    if (status === "pending") return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200"><Clock className="w-3 h-3 mr-1" />Pending</Badge>;
+    if (status === "approved") return <Badge className="bg-green-100 text-green-800 border-green-200"><CheckCircle className="w-3 h-3 mr-1" />Approved</Badge>;
+    return <Badge className="bg-red-100 text-red-800 border-red-200"><XCircle className="w-3 h-3 mr-1" />Rejected</Badge>;
+  };
+
+  return (
+    <div className="space-y-6">
+
+      {/* Auto-Discovery */}
+      <Card className="border-2 border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-base">
+              <Sparkles className="w-5 h-5 text-blue-600" />
+              Auto-Discover Real Products
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-500 font-normal">
+              <Clock className="w-3 h-3" /> Runs daily at 8am automatically
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-gray-600">
+            Scans each of your categories, finds real top-rated products, generates full AI reviews, and queues them for your approval — all automatically.
+          </p>
+          <Button
+            onClick={runDiscovery}
+            disabled={discovering}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+          >
+            {discovering ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Discovering products...</>
+            ) : (
+              <><Sparkles className="w-4 h-4 mr-2" /> Run Discovery Now</>
+            )}
+          </Button>
+
+          {discoveryLog.length > 0 && (
+            <div className="bg-gray-900 rounded-lg p-3 max-h-48 overflow-y-auto text-xs font-mono space-y-1">
+              {discoveryLog.map((entry, i) => (
+                <div key={i} className={
+                  entry.type === "error" ? "text-red-400" :
+                  entry.type === "done" ? "text-green-400 font-bold" :
+                  entry.type === "skip" ? "text-gray-500" :
+                  entry.type === "product" ? "text-blue-300" :
+                  entry.type === "category" ? "text-yellow-300" :
+                  "text-gray-300"
+                }>
+                  {entry.type === "product" && "  → "}
+                  {entry.type === "skip" && "  ⊘ "}
+                  {entry.type === "category" && "▶ "}
+                  {entry.type === "done" && "✓ "}
+                  {entry.type === "error" && "✗ "}
+                  {entry.message}
+                </div>
+              ))}
+              <div ref={logEndRef} />
+            </div>
+          )}
+
+          {discoveryQueued !== null && !discovering && (
+            <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm text-green-700">
+              <CheckCircle className="w-4 h-4 flex-shrink-0" />
+              <span><strong>{discoveryQueued} new products</strong> queued below — review and approve to publish them.</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Header stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="pt-5 flex items-center gap-3">
+            <div className="p-2 bg-yellow-100 rounded-lg"><Clock className="w-5 h-5 text-yellow-600" /></div>
+            <div>
+              <p className="text-sm text-gray-500">Awaiting Review</p>
+              <p className="text-2xl font-bold text-gray-900">{allPending.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-5">
+            <p className="text-sm text-gray-500 mb-2 font-medium">Webhook URL</p>
+            <div className="flex items-center gap-2">
+              <code className="text-xs bg-gray-100 px-2 py-1 rounded flex-1 truncate">{webhookUrl}</code>
+              <Button size="sm" variant="outline" onClick={copyWebhook} data-testid="button-copy-webhook">
+                {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-5">
+            <p className="text-sm text-gray-500 mb-1 font-medium">Auth Header</p>
+            <code className="text-xs bg-gray-100 px-2 py-1 rounded block">x-api-key: your_webhook_key</code>
+            <p className="text-xs text-gray-400 mt-1">Find the key in Secrets → WEBHOOK_API_KEY</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* n8n Setup Guide */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Zap className="w-4 h-4 text-purple-500" /> n8n Workflow Setup
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-gray-600">Connect n8n to this endpoint to automate product imports. The workflow below runs on a schedule, fetches affiliate products, generates AI reviews, and sends them here for your approval.</p>
+          <div className="bg-gray-50 rounded-lg p-4 text-sm space-y-3 font-mono">
+            <div><span className="text-purple-600 font-bold">Step 1 — Trigger:</span> Schedule Trigger → every day at 8am</div>
+            <div><span className="text-purple-600 font-bold">Step 2 — Get Categories:</span> HTTP Request → GET {window.location.origin}/api/categories</div>
+            <div><span className="text-purple-600 font-bold">Step 3 — Fetch Products:</span> Code node → add your product list or affiliate API</div>
+            <div><span className="text-purple-600 font-bold">Step 4 — AI Review:</span> OpenAI node (gpt-4o) → generate review JSON</div>
+            <div><span className="text-purple-600 font-bold">Step 5 — Format:</span> Code node → map fields to webhook format</div>
+            <div><span className="text-purple-600 font-bold">Step 6 — Send Here:</span> HTTP Request → POST {webhookUrl}</div>
+            <div className="text-xs text-gray-500">Add header: <code>x-api-key: your_WEBHOOK_API_KEY</code></div>
+          </div>
+          <Button onClick={downloadN8nWorkflow} className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+            <Download className="w-4 h-4 mr-2" /> Download n8n Workflow JSON
+          </Button>
+          <p className="text-xs text-gray-400">Import this file directly into n8n (Workflows → Import from file). Then set your OpenAI credentials and add your WEBHOOK_API_KEY as an HTTP Header Auth credential named "ProPicks API Key".</p>
+          <div className="bg-blue-50 rounded-lg p-4 text-sm">
+            <p className="font-semibold text-blue-800 mb-2">AI Prompt Template (paste in n8n OpenAI node):</p>
+            <pre className="text-xs text-blue-700 whitespace-pre-wrap">{`You are a product review expert for an affiliate marketing site.
+Write a review for: {{$json.productName}} (Category: {{$json.category}})
+Price: {{$json.price}} | Rating: {{$json.rating}}/5
+
+Return ONLY valid JSON with this exact structure:
+{
+  "name": "Product Name",
+  "slug": "product-name",
+  "shortDescription": "1-2 sentence summary",
+  "detailedReview": "3-4 paragraph honest review",
+  "pros": ["Pro 1", "Pro 2", "Pro 3"],
+  "cons": ["Con 1", "Con 2"],
+  "bestFor": "Who this is best for",
+  "features": ["Feature 1", "Feature 2", "Feature 3"],
+  "badge": "Best Value",
+  "scores": {"speed": 88, "security": 92, "value": 85, "ease": 90}
+}`}</pre>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Approval Queue */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Approval Queue</h3>
+          <div className="flex gap-2">
+            {["pending", "approved", "rejected"].map(s => (
+              <Button key={s} size="sm" variant={filterStatus === s ? "default" : "outline"} onClick={() => setFilterStatus(s)} data-testid={`button-filter-${s}`} className="capitalize">{s}</Button>
+            ))}
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="text-center py-12 text-gray-400"><Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />Loading...</div>
+        ) : pendingList.length === 0 ? (
+          <Card><CardContent className="pt-8 pb-8 text-center text-gray-400">
+            <Zap className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <p className="font-medium">No {filterStatus} products</p>
+            <p className="text-sm mt-1">Products submitted via webhook or AI will appear here</p>
+          </CardContent></Card>
+        ) : (
+          <div className="space-y-3">
+            {pendingList.map(p => (
+              <Card key={p.id} data-testid={`card-pending-${p.id}`} className="overflow-hidden">
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      {p.logo && <img src={p.logo} alt={p.name} className="w-10 h-10 object-contain rounded border bg-white flex-shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-gray-900" data-testid={`text-pending-name-${p.id}`}>{p.name}</span>
+                          {statusBadge(p.status)}
+                          <Badge variant="outline" className="text-xs">{p.source}</Badge>
+                        </div>
+                        <p className="text-sm text-gray-500 truncate mt-0.5">{p.shortDescription}</p>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                          <span>⭐ {p.rating}</span>
+                          <span>💰 {p.price}</span>
+                          <span>🔗 {p.affiliateSlug}</span>
+                          <span>{new Date(p.createdAt).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Button size="sm" variant="outline" onClick={() => setExpandedId(expandedId === p.id ? null : p.id)} data-testid={`button-expand-${p.id}`}>
+                        {expandedId === p.id ? "Less" : "Preview"}
+                      </Button>
+                      {p.status === "pending" && (
+                        <>
+                          <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => approveMutation.mutate(p.id)} disabled={approveMutation.isPending} data-testid={`button-approve-${p.id}`}>
+                            <CheckCircle className="w-4 h-4 mr-1" /> Approve
+                          </Button>
+                          <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => rejectMutation.mutate(p.id)} disabled={rejectMutation.isPending} data-testid={`button-reject-${p.id}`}>
+                            <XCircle className="w-4 h-4 mr-1" /> Reject
+                          </Button>
+                        </>
+                      )}
+                      {p.status !== "pending" && (
+                        <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => deleteMutation.mutate(p.id)} data-testid={`button-delete-pending-${p.id}`}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {expandedId === p.id && (
+                    <div className="mt-4 pt-4 border-t space-y-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                        <div><span className="text-gray-400 block">Category ID</span><strong>{p.categoryId}</strong></div>
+                        <div><span className="text-gray-400 block">Affiliate Slug</span><strong>{p.affiliateSlug}</strong></div>
+                        <div><span className="text-gray-400 block">Commission</span><strong>{p.commission}</strong></div>
+                        <div><span className="text-gray-400 block">Cookie Days</span><strong>{p.cookieDays}</strong></div>
+                      </div>
+                      {(p.pros as string[])?.length > 0 && (
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <p className="text-gray-400 font-medium mb-1">Pros</p>
+                            <ul className="space-y-1">{(p.pros as string[]).map((pro, i) => <li key={i} className="text-green-700">✓ {pro}</li>)}</ul>
+                          </div>
+                          <div>
+                            <p className="text-gray-400 font-medium mb-1">Cons</p>
+                            <ul className="space-y-1">{(p.cons as string[]).map((con, i) => <li key={i} className="text-red-600">✗ {con}</li>)}</ul>
+                          </div>
+                        </div>
+                      )}
+                      {p.detailedReview && <div className="text-sm text-gray-600 bg-gray-50 rounded p-3 line-clamp-3">{p.detailedReview}</div>}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Admin Page ──────────────────────────────────────────────────────────
 
 export default function Admin() {
@@ -724,6 +1361,9 @@ export default function Admin() {
             <TabsTrigger value="linkbio" className="flex items-center gap-1.5">
               <List className="w-4 h-4" /> Link Bio
             </TabsTrigger>
+            <TabsTrigger value="automation" className="flex items-center gap-1.5">
+              <Zap className="w-4 h-4" /> Automation
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="analytics"><AnalyticsTab /></TabsContent>
@@ -731,6 +1371,7 @@ export default function Admin() {
           <TabsContent value="products"><ProductsTab /></TabsContent>
           <TabsContent value="affiliate"><AffiliateLinksTab /></TabsContent>
           <TabsContent value="linkbio"><LinkBioTab /></TabsContent>
+          <TabsContent value="automation"><AutomationTab /></TabsContent>
         </Tabs>
       </main>
     </div>
