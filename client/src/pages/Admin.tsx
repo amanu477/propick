@@ -14,7 +14,7 @@ import {
 import {
   Shield, LogOut, Plus, Pencil, Trash2, MousePointerClick,
   TrendingUp, Link as LinkIcon, DollarSign, LayoutDashboard,
-  Tag, Package, ExternalLink, List
+  Tag, Package, ExternalLink, List, Sparkles, Loader2
 } from "lucide-react";
 import type { Category, Product, AffiliateLink, LinkBioCategory, LinkBioItem } from "@shared/schema";
 
@@ -298,6 +298,9 @@ function ProductsTab() {
   const [showNewLink, setShowNewLink] = useState(false);
   const emptyNewLink = { url: "", program: "", commission: "", cookieDays: "30" };
   const [newLinkForm, setNewLinkForm] = useState(emptyNewLink);
+  const [autoGenOpen, setAutoGenOpen] = useState(false);
+  const [autoGenForm, setAutoGenForm] = useState({ categoryId: "", productName: "" });
+  const [autoGenError, setAutoGenError] = useState("");
 
   const emptyForm = {
     categoryId: "", slug: "", name: "", logo: "", rating: "", price: "", originalPrice: "",
@@ -340,6 +343,18 @@ function ProductsTab() {
   const deleteMut = useMutation({
     mutationFn: (id: number) => apiFetch(`/api/admin/products/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/products"] }); setDeleting(null); },
+  });
+
+  const autoGenMut = useMutation({
+    mutationFn: (data: any) => apiFetch("/api/admin/auto-generate-product", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/products"] });
+      qc.invalidateQueries({ queryKey: ["/api/admin/affiliate-links"] });
+      setAutoGenOpen(false);
+      setAutoGenForm({ categoryId: "", productName: "" });
+      setAutoGenError("");
+    },
+    onError: (err: any) => { setAutoGenError(err.message || "Generation failed. Please try again."); },
   });
 
   function openCreate() { setForm(emptyForm); setShowNewLink(false); setNewLinkForm(emptyNewLink); setCreating(true); }
@@ -496,7 +511,12 @@ function ProductsTab() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold">Products ({products.length})</h2>
-        <Button size="sm" onClick={openCreate}><Plus className="w-4 h-4 mr-1" /> Add Product</Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => { setAutoGenError(""); setAutoGenForm({ categoryId: "", productName: "" }); setAutoGenOpen(true); }} className="border-purple-300 text-purple-700 hover:bg-purple-50">
+            <Sparkles className="w-4 h-4 mr-1" /> AI Generate
+          </Button>
+          <Button size="sm" onClick={openCreate}><Plus className="w-4 h-4 mr-1" /> Add Product</Button>
+        </div>
       </div>
 
       <div className="grid gap-3">
@@ -538,6 +558,61 @@ function ProductsTab() {
           onConfirm={() => deleteMut.mutate(deleting.id)}
           onCancel={() => setDeleting(null)}
         />
+      )}
+
+      {autoGenOpen && (
+        <Dialog open>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-600" />
+                AI Product Generator
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-sm text-purple-700">
+                AI will generate a complete product review including name, pricing, pros/cons, features, scores, and an affiliate link — all automatically.
+              </div>
+              <div className="space-y-1">
+                <Label>Category</Label>
+                <select
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                  value={autoGenForm.categoryId}
+                  onChange={(e) => setAutoGenForm(f => ({ ...f, categoryId: e.target.value }))}
+                >
+                  <option value="">Select a category...</option>
+                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label>Product Name <span className="text-gray-400 text-xs">(optional — leave blank to let AI decide)</span></Label>
+                <input
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                  placeholder="e.g. CyberGhost, Malwarebytes..."
+                  value={autoGenForm.productName}
+                  onChange={(e) => setAutoGenForm(f => ({ ...f, productName: e.target.value }))}
+                />
+              </div>
+              {autoGenError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">{autoGenError}</div>
+              )}
+              <div className="flex gap-2 justify-end pt-1">
+                <Button variant="outline" onClick={() => { setAutoGenOpen(false); setAutoGenError(""); }} disabled={autoGenMut.isPending}>Cancel</Button>
+                <Button
+                  onClick={() => autoGenMut.mutate(autoGenForm)}
+                  disabled={!autoGenForm.categoryId || autoGenMut.isPending}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  {autoGenMut.isPending ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</>
+                  ) : (
+                    <><Sparkles className="w-4 h-4 mr-1" /> Generate Product</>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

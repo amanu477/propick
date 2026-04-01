@@ -4,6 +4,7 @@ import passport from "passport";
 import { storage } from "./storage";
 import { hashPassword } from "./index";
 import { api } from "@shared/routes";
+import { openai } from "./openai";
 
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (req.isAuthenticated()) return next();
@@ -182,6 +183,97 @@ export async function registerRoutes(
       res.json({ message: "Deleted" });
     } catch (err: any) {
       res.status(400).json({ message: err.message });
+    }
+  });
+
+  // ─── Admin: AI Auto-Generate Product ────────────────────────────────────────
+
+  app.post("/api/admin/auto-generate-product", requireAdmin, async (req, res) => {
+    try {
+      const { categoryId, productName } = req.body;
+      if (!categoryId) return res.status(400).json({ message: "categoryId is required" });
+
+      const category = await storage.getCategoryById(parseInt(categoryId));
+      if (!category) return res.status(404).json({ message: "Category not found" });
+
+      const prompt = `You are an expert affiliate product reviewer. Generate a complete, realistic, and detailed product review for "${productName || "a top product"}" in the "${category.name}" category (${category.description}).
+
+Return ONLY a valid JSON object with exactly this structure (no markdown, no code fences):
+{
+  "name": "Product Name",
+  "slug": "product-name-lowercase-hyphenated",
+  "logo": "https://logo.clearbit.com/productwebsite.com",
+  "rating": "4.8",
+  "price": "$X.XX/mo",
+  "originalPrice": "$XX.XX/mo",
+  "discount": "XX%",
+  "affiliateSlug": "productname",
+  "affiliateUrl": "https://productwebsite.com",
+  "affiliateProgram": "Product Name Partners",
+  "commission": "40%",
+  "cookieDays": 30,
+  "badge": "🏆 Editor's Choice",
+  "shortDescription": "One compelling sentence about the product.",
+  "features": ["Feature 1", "Feature 2", "Feature 3", "Feature 4", "Feature 5"],
+  "pros": ["Pro 1", "Pro 2", "Pro 3", "Pro 4"],
+  "cons": ["Con 1", "Con 2"],
+  "bestFor": "Who this product is best for.",
+  "scores": { "speed": 90, "security": 92, "value": 88, "ease": 94 },
+  "detailedReview": "Write 2-3 paragraphs of a detailed, honest, and helpful expert review of this product covering its main strengths, key use cases, and how it compares to competitors."
+}
+
+Be realistic and accurate. Use real product data if you know it. Make all scores between 75-99. Make the review sound professional and trustworthy.`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-5.1",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 2000,
+      });
+
+      const raw = response.choices[0]?.message?.content || "{}";
+      const generated = JSON.parse(raw);
+
+      const existingBySlug = await storage.getProductBySlug(generated.slug);
+      if (existingBySlug) {
+        generated.slug = `${generated.slug}-${Date.now()}`;
+      }
+
+      const existingLink = await storage.getAffiliateLinkBySlug(generated.affiliateSlug);
+      if (!existingLink) {
+        await storage.createAffiliateLink({
+          slug: generated.affiliateSlug,
+          url: generated.affiliateUrl || `https://example.com/aff/${generated.affiliateSlug}`,
+          program: generated.affiliateProgram || `${generated.name} Partners`,
+          commission: generated.commission || "40%",
+          cookieDays: generated.cookieDays || 30,
+        });
+      }
+
+      const product = await storage.createProduct({
+        categoryId: parseInt(categoryId),
+        slug: generated.slug,
+        name: generated.name,
+        logo: generated.logo || "",
+        rating: generated.rating || "4.5",
+        price: generated.price || "N/A",
+        originalPrice: generated.originalPrice || "N/A",
+        discount: generated.discount || "0%",
+        affiliateSlug: generated.affiliateSlug,
+        badge: generated.badge || null,
+        shortDescription: generated.shortDescription || "",
+        features: Array.isArray(generated.features) ? generated.features : [],
+        pros: Array.isArray(generated.pros) ? generated.pros : [],
+        cons: Array.isArray(generated.cons) ? generated.cons : [],
+        bestFor: generated.bestFor || "",
+        scores: generated.scores || { speed: 85, security: 85, value: 85, ease: 85 },
+        detailedReview: generated.detailedReview || "",
+      });
+
+      res.status(201).json(product);
+    } catch (err: any) {
+      console.error("Auto-generate error:", err);
+      res.status(500).json({ message: err.message || "Failed to generate product" });
     }
   });
 
