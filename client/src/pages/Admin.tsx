@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -892,6 +892,49 @@ function AutomationTab() {
   const [filterStatus, setFilterStatus] = useState<string>("pending");
   const [copied, setCopied] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [discovering, setDiscovering] = useState(false);
+  const [discoveryLog, setDiscoveryLog] = useState<Array<{ type: string; message: string }>>([]);
+  const [discoveryQueued, setDiscoveryQueued] = useState<number | null>(null);
+  const logEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [discoveryLog]);
+
+  const runDiscovery = async () => {
+    setDiscovering(true);
+    setDiscoveryLog([]);
+    setDiscoveryQueued(null);
+    try {
+      const res = await fetch("/api/admin/run-discovery", { method: "POST", credentials: "include" });
+      if (!res.ok || !res.body) throw new Error("Failed to start discovery");
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            setDiscoveryLog(prev => [...prev, event]);
+            if (event.type === "done") {
+              setDiscoveryQueued(event.queued ?? 0);
+              qc.invalidateQueries({ queryKey: ["/api/admin/pending-products"] });
+            }
+          } catch {}
+        }
+      }
+    } catch (err: any) {
+      setDiscoveryLog(prev => [...prev, { type: "error", message: err.message }]);
+    } finally {
+      setDiscovering(false);
+    }
+  };
 
   const { data: pendingList = [], isLoading } = useQuery<PendingProduct[]>({
     queryKey: ["/api/admin/pending-products", filterStatus],
@@ -1018,6 +1061,68 @@ function AutomationTab() {
 
   return (
     <div className="space-y-6">
+
+      {/* Auto-Discovery */}
+      <Card className="border-2 border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-base">
+              <Sparkles className="w-5 h-5 text-blue-600" />
+              Auto-Discover Real Products
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-500 font-normal">
+              <Clock className="w-3 h-3" /> Runs daily at 8am automatically
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-gray-600">
+            Scans each of your categories, finds real top-rated products, generates full AI reviews, and queues them for your approval — all automatically.
+          </p>
+          <Button
+            onClick={runDiscovery}
+            disabled={discovering}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+          >
+            {discovering ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Discovering products...</>
+            ) : (
+              <><Sparkles className="w-4 h-4 mr-2" /> Run Discovery Now</>
+            )}
+          </Button>
+
+          {discoveryLog.length > 0 && (
+            <div className="bg-gray-900 rounded-lg p-3 max-h-48 overflow-y-auto text-xs font-mono space-y-1">
+              {discoveryLog.map((entry, i) => (
+                <div key={i} className={
+                  entry.type === "error" ? "text-red-400" :
+                  entry.type === "done" ? "text-green-400 font-bold" :
+                  entry.type === "skip" ? "text-gray-500" :
+                  entry.type === "product" ? "text-blue-300" :
+                  entry.type === "category" ? "text-yellow-300" :
+                  "text-gray-300"
+                }>
+                  {entry.type === "product" && "  → "}
+                  {entry.type === "skip" && "  ⊘ "}
+                  {entry.type === "category" && "▶ "}
+                  {entry.type === "done" && "✓ "}
+                  {entry.type === "error" && "✗ "}
+                  {entry.message}
+                </div>
+              ))}
+              <div ref={logEndRef} />
+            </div>
+          )}
+
+          {discoveryQueued !== null && !discovering && (
+            <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm text-green-700">
+              <CheckCircle className="w-4 h-4 flex-shrink-0" />
+              <span><strong>{discoveryQueued} new products</strong> queued below — review and approve to publish them.</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Header stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>

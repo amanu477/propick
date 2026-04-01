@@ -5,6 +5,7 @@ import { storage } from "./storage";
 import { hashPassword } from "./index";
 import { api } from "@shared/routes";
 import { openai } from "./openai";
+import { runAutoDiscovery } from "./discovery";
 
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (req.isAuthenticated()) return next();
@@ -484,6 +485,26 @@ Be realistic and accurate. Use real product data if you know it. Make all scores
       res.json({ message: "Deleted" });
     } catch (err: any) {
       res.status(400).json({ message: err.message });
+    }
+  });
+
+  // ─── Auto-Discovery: SSE streaming ─────────────────────────────────────────
+
+  app.post("/api/admin/run-discovery", requireAdmin, async (req, res) => {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    const send = (data: object) => {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    try {
+      await runAutoDiscovery((progress) => send(progress));
+    } catch (err: any) {
+      send({ type: "error", message: err.message });
+    } finally {
+      res.end();
     }
   });
 

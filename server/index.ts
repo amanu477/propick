@@ -9,6 +9,8 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { storage } from "./storage";
+import cron from "node-cron";
+import { runAutoDiscovery } from "./discovery";
 
 const scryptAsync = promisify(scrypt);
 
@@ -135,6 +137,19 @@ export async function hashPassword(password: string): Promise<string> {
 
 (async () => {
   await registerRoutes(httpServer, app);
+
+  // ─── Daily auto-discovery scheduler (runs every day at 8am) ─────────────────
+  cron.schedule("0 8 * * *", async () => {
+    log("Running scheduled auto-discovery...", "cron");
+    try {
+      const count = await runAutoDiscovery((p) => {
+        if (p.type === "done" || p.type === "error") log(p.message, "cron");
+      });
+      log(`Scheduled discovery complete: ${count} products queued`, "cron");
+    } catch (err: any) {
+      log(`Scheduled discovery error: ${err.message}`, "cron");
+    }
+  });
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
