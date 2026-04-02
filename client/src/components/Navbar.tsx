@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { Menu, X, BarChart3, ShieldCheck } from "lucide-react";
+import { Menu, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -50,23 +50,6 @@ export function Navbar() {
             ))}
           </div>
 
-          <div className="hidden md:flex items-center space-x-4">
-             <Link href="/dashboard">
-              <Button variant="ghost" size="sm" className="text-gray-500 hover:text-primary">
-                <BarChart3 className="w-4 h-4 mr-2" />
-                Analytics
-              </Button>
-            </Link>
-            <Link href="/links">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="border-primary/20 text-primary hover:bg-primary/5 hover:text-primary font-semibold"
-              >
-                Link in Bio
-              </Button>
-            </Link>
-          </div>
 
           {/* Mobile Menu */}
           <div className="md:hidden">
@@ -95,23 +78,6 @@ export function Navbar() {
                       </Link>
                     ))}
                   </div>
-                  <div className="h-px bg-gray-100" />
-                  <Link href="/links">
-                    <Button 
-                      onClick={() => setIsOpen(false)}
-                      className="w-full justify-start" variant="outline"
-                    >
-                      View Link in Bio
-                    </Button>
-                  </Link>
-                  <Link href="/dashboard">
-                    <Button 
-                      onClick={() => setIsOpen(false)}
-                      className="w-full justify-start" variant="ghost"
-                    >
-                      Dashboard
-                    </Button>
-                  </Link>
                 </div>
               </SheetContent>
             </Sheet>

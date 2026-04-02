@@ -890,6 +890,7 @@ function LinkBioTab() {
 function AutomationTab() {
   const qc = useQueryClient();
   const [filterStatus, setFilterStatus] = useState<string>("pending");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [discovering, setDiscovering] = useState(false);
@@ -1087,7 +1088,7 @@ function AutomationTab() {
           <h3 className="text-lg font-semibold text-gray-900">Approval Queue</h3>
           <div className="flex gap-2">
             {["pending", "approved", "rejected"].map(s => (
-              <Button key={s} size="sm" variant={filterStatus === s ? "default" : "outline"} onClick={() => setFilterStatus(s)} data-testid={`button-filter-${s}`} className="capitalize">{s}</Button>
+              <Button key={s} size="sm" variant={filterStatus === s ? "default" : "outline"} onClick={() => { setFilterStatus(s); setSelectedCategoryId(null); }} data-testid={`button-filter-${s}`} className="capitalize">{s}</Button>
             ))}
           </div>
         </div>
@@ -1100,104 +1101,121 @@ function AutomationTab() {
             <p className="font-medium">No {filterStatus} products</p>
             <p className="text-sm mt-1">Products submitted via webhook or AI will appear here</p>
           </CardContent></Card>
-        ) : (
-          <div className="space-y-6">
-            {(() => {
-              const grouped: Record<number, PendingProduct[]> = {};
-              for (const p of pendingList) {
-                const cid = p.categoryId ?? 0;
-                if (!grouped[cid]) grouped[cid] = [];
-                grouped[cid].push(p);
-              }
-              return Object.entries(grouped).map(([cidStr, products]) => {
-                const cid = Number(cidStr);
-                const cat = catMap[cid];
-                return (
-                  <div key={cid}>
-                    <div className="flex items-center gap-2 mb-3">
-                      <Tag className="w-4 h-4 text-blue-500" />
-                      <h4 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">
-                        {cat ? cat.name : `Category ${cid || "Unknown"}`}
-                      </h4>
-                      <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">{products.length}</span>
-                    </div>
-                    <div className="space-y-3">
-                      {products.map(p => (
-                        <Card key={p.id} data-testid={`card-pending-${p.id}`} className="overflow-hidden">
-                          <CardContent className="pt-4 pb-4">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex items-start gap-3 flex-1 min-w-0">
-                                {p.logo && <img src={p.logo} alt={p.name} className="w-10 h-10 object-contain rounded border bg-white flex-shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="font-semibold text-gray-900" data-testid={`text-pending-name-${p.id}`}>{p.name}</span>
-                                    {statusBadge(p.status)}
-                                    <Badge variant="outline" className="text-xs">{p.source}</Badge>
-                                  </div>
-                                  <p className="text-sm text-gray-500 truncate mt-0.5">{p.shortDescription}</p>
-                                  <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                                    <span>⭐ {p.rating}</span>
-                                    <span>💰 {p.price}</span>
-                                    <span>🔗 {p.affiliateSlug}</span>
-                                    <span>{new Date(p.createdAt).toLocaleDateString()}</span>
-                                  </div>
-                                </div>
+        ) : (() => {
+          const grouped: Record<number, PendingProduct[]> = {};
+          for (const p of pendingList) {
+            const cid = p.categoryId ?? 0;
+            if (!grouped[cid]) grouped[cid] = [];
+            grouped[cid].push(p);
+          }
+          const catIds = Object.keys(grouped).map(Number);
+          const activeCatId = selectedCategoryId !== null && grouped[selectedCategoryId] ? selectedCategoryId : catIds[0];
+          const visibleProducts = grouped[activeCatId] || [];
+          const activeCat = catMap[activeCatId];
+
+          return (
+            <div>
+              {/* Horizontal category tabs */}
+              <div className="flex gap-2 flex-wrap mb-4">
+                {catIds.map(cid => {
+                  const cat = catMap[cid];
+                  const isActive = cid === activeCatId;
+                  return (
+                    <button
+                      key={cid}
+                      onClick={() => setSelectedCategoryId(cid)}
+                      data-testid={`button-cat-${cid}`}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-all ${
+                        isActive
+                          ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                          : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
+                      }`}
+                    >
+                      <Tag className="w-3.5 h-3.5" />
+                      {cat ? cat.name : `Category ${cid || "Unknown"}`}
+                      <span className={`text-xs rounded-full px-1.5 py-0.5 ${isActive ? "bg-white/20 text-white" : "bg-gray-100 text-gray-400"}`}>
+                        {grouped[cid].length}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Products for selected category */}
+              <div className="space-y-3">
+                {visibleProducts.map(p => (
+                  <Card key={p.id} data-testid={`card-pending-${p.id}`} className="overflow-hidden">
+                    <CardContent className="pt-4 pb-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          {p.logo && <img src={p.logo} alt={p.name} className="w-10 h-10 object-contain rounded border bg-white flex-shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-gray-900" data-testid={`text-pending-name-${p.id}`}>{p.name}</span>
+                              {statusBadge(p.status)}
+                              <Badge variant="outline" className="text-xs">{p.source}</Badge>
+                            </div>
+                            <p className="text-sm text-gray-500 truncate mt-0.5">{p.shortDescription}</p>
+                            <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                              <span>⭐ {p.rating}</span>
+                              <span>💰 {p.price}</span>
+                              <span>🔗 {p.affiliateSlug}</span>
+                              <span>{new Date(p.createdAt).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Button size="sm" variant="outline" onClick={() => setExpandedId(expandedId === p.id ? null : p.id)} data-testid={`button-expand-${p.id}`}>
+                            {expandedId === p.id ? "Less" : "Preview"}
+                          </Button>
+                          {p.status === "pending" && (
+                            <>
+                              <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => approveMutation.mutate(p.id)} disabled={approveMutation.isPending} data-testid={`button-approve-${p.id}`}>
+                                <CheckCircle className="w-4 h-4 mr-1" /> Approve
+                              </Button>
+                              <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => rejectMutation.mutate(p.id)} disabled={rejectMutation.isPending} data-testid={`button-reject-${p.id}`}>
+                                <XCircle className="w-4 h-4 mr-1" /> Reject
+                              </Button>
+                            </>
+                          )}
+                          {p.status !== "pending" && (
+                            <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => deleteMutation.mutate(p.id)} data-testid={`button-delete-pending-${p.id}`}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {expandedId === p.id && (
+                        <div className="mt-4 pt-4 border-t space-y-3">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                            <div><span className="text-gray-400 block">Category</span><strong>{activeCat ? activeCat.name : `#${activeCatId}`}</strong></div>
+                            <div><span className="text-gray-400 block">Affiliate Slug</span><strong>{p.affiliateSlug}</strong></div>
+                            <div><span className="text-gray-400 block">Commission</span><strong>{p.commission}</strong></div>
+                            <div><span className="text-gray-400 block">Cookie Days</span><strong>{p.cookieDays}</strong></div>
+                          </div>
+                          {(p.pros as string[])?.length > 0 && (
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <p className="text-gray-400 font-medium mb-1">Pros</p>
+                                <ul className="space-y-1">{(p.pros as string[]).map((pro, i) => <li key={i} className="text-green-700">✓ {pro}</li>)}</ul>
                               </div>
-                              <div className="flex items-center gap-2 flex-shrink-0">
-                                <Button size="sm" variant="outline" onClick={() => setExpandedId(expandedId === p.id ? null : p.id)} data-testid={`button-expand-${p.id}`}>
-                                  {expandedId === p.id ? "Less" : "Preview"}
-                                </Button>
-                                {p.status === "pending" && (
-                                  <>
-                                    <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => approveMutation.mutate(p.id)} disabled={approveMutation.isPending} data-testid={`button-approve-${p.id}`}>
-                                      <CheckCircle className="w-4 h-4 mr-1" /> Approve
-                                    </Button>
-                                    <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => rejectMutation.mutate(p.id)} disabled={rejectMutation.isPending} data-testid={`button-reject-${p.id}`}>
-                                      <XCircle className="w-4 h-4 mr-1" /> Reject
-                                    </Button>
-                                  </>
-                                )}
-                                {p.status !== "pending" && (
-                                  <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => deleteMutation.mutate(p.id)} data-testid={`button-delete-pending-${p.id}`}>
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                )}
+                              <div>
+                                <p className="text-gray-400 font-medium mb-1">Cons</p>
+                                <ul className="space-y-1">{(p.cons as string[]).map((con, i) => <li key={i} className="text-red-600">✗ {con}</li>)}</ul>
                               </div>
                             </div>
-
-                            {expandedId === p.id && (
-                              <div className="mt-4 pt-4 border-t space-y-3">
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                                  <div><span className="text-gray-400 block">Category</span><strong>{cat ? cat.name : `#${cid}`}</strong></div>
-                                  <div><span className="text-gray-400 block">Affiliate Slug</span><strong>{p.affiliateSlug}</strong></div>
-                                  <div><span className="text-gray-400 block">Commission</span><strong>{p.commission}</strong></div>
-                                  <div><span className="text-gray-400 block">Cookie Days</span><strong>{p.cookieDays}</strong></div>
-                                </div>
-                                {(p.pros as string[])?.length > 0 && (
-                                  <div className="grid grid-cols-2 gap-4 text-sm">
-                                    <div>
-                                      <p className="text-gray-400 font-medium mb-1">Pros</p>
-                                      <ul className="space-y-1">{(p.pros as string[]).map((pro, i) => <li key={i} className="text-green-700">✓ {pro}</li>)}</ul>
-                                    </div>
-                                    <div>
-                                      <p className="text-gray-400 font-medium mb-1">Cons</p>
-                                      <ul className="space-y-1">{(p.cons as string[]).map((con, i) => <li key={i} className="text-red-600">✗ {con}</li>)}</ul>
-                                    </div>
-                                  </div>
-                                )}
-                                {p.detailedReview && <div className="text-sm text-gray-600 bg-gray-50 rounded p-3 line-clamp-3">{p.detailedReview}</div>}
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                );
-              });
-            })()}
-          </div>
-        )}
+                          )}
+                          {p.detailedReview && <div className="text-sm text-gray-600 bg-gray-50 rounded p-3 line-clamp-3">{p.detailedReview}</div>}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
