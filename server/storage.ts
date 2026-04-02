@@ -4,7 +4,7 @@ import {
   type Category, type Product, type AffiliateLink, type ClickLog, type LinkBioCategory, type LinkBioItem, type AdminUser, type PendingProduct,
   type InsertCategory, type InsertProduct, type InsertAffiliateLink, type InsertClickLog, type InsertLinkBioCategory, type InsertLinkBioItem, type InsertAdminUser, type InsertPendingProduct
 } from "@shared/schema";
-import { eq, desc, asc } from "drizzle-orm";
+import { eq, desc, asc, like, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Categories
@@ -23,6 +23,7 @@ export interface IStorage {
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product>;
   deleteProduct(id: number): Promise<void>;
+  fixProductLogos(): Promise<void>;
 
   // Affiliate Links
   getAffiliateLinks(): Promise<AffiliateLink[]>;
@@ -127,6 +128,17 @@ export class DatabaseStorage implements IStorage {
 
   async deleteProduct(id: number): Promise<void> {
     await db.delete(products).where(eq(products.id, id));
+  }
+
+  async fixProductLogos(): Promise<void> {
+    // Update all products that still use Wikipedia/other unreliable logo URLs
+    // to use Clearbit based on their affiliate slug (e.g. "nordvpn" → logo.clearbit.com/nordvpn.com)
+    await db.execute(
+      sql`UPDATE products
+          SET logo = 'https://logo.clearbit.com/' || affiliate_slug || '.com'
+          WHERE logo LIKE '%wikipedia%'
+             OR logo LIKE '%wikimedia%'`
+    );
   }
 
   // ─── Affiliate Links ───────────────────────────────────────────────────────

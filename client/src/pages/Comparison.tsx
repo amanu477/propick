@@ -8,18 +8,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, CheckCircle2, Info, Star } from "lucide-react";
 import { motion } from "framer-motion";
 
-function TableLogo({ src, name, affiliateUrl }: { src: string; name: string; affiliateUrl?: string }) {
+function TableLogo({ src, name, affiliateSlug }: { src: string; name: string; affiliateSlug?: string }) {
   const [idx, setIdx] = useState(0);
   const urls = useMemo(() => {
     const list: string[] = [];
     if (src) list.push(src);
 
-    // Try to get product domain from Clearbit URL or affiliateUrl
+    // Extract domain from Clearbit URL or derive from affiliateSlug
     const clearbitMatch = src?.match(/logo\.clearbit\.com\/([^/?]+)/);
-    let domain = clearbitMatch?.[1] ?? null;
-    if (!domain && affiliateUrl) {
-      try { domain = new URL(affiliateUrl).hostname.replace(/^www\./, ""); } catch {}
-    }
+    const domain = clearbitMatch?.[1] ?? (affiliateSlug ? `${affiliateSlug}.com` : null);
 
     if (domain) {
       if (!clearbitMatch) list.push(`https://logo.clearbit.com/${domain}`);
@@ -27,7 +24,7 @@ function TableLogo({ src, name, affiliateUrl }: { src: string; name: string; aff
       list.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=64`);
     }
     return list;
-  }, [src, affiliateUrl]);
+  }, [src, affiliateSlug]);
 
   if (idx >= urls.length) {
     return (
@@ -162,7 +159,7 @@ export default function Comparison() {
                       >
                         <td className="px-6 py-4 font-bold text-gray-900">
                           <div className="flex items-center gap-3">
-                            <TableLogo src={product.logo} name={product.name} affiliateUrl={product.affiliateUrl} />
+                            <TableLogo src={product.logo} name={product.name} affiliateSlug={product.affiliateSlug} />
                             {product.name}
                           </div>
                         </td>

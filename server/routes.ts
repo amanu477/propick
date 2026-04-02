@@ -512,6 +512,7 @@ Be realistic and accurate. Use real product data if you know it. Make all scores
   // ─── Seed ───────────────────────────────────────────────────────────────────
 
   await seedDatabase();
+  await storage.fixProductLogos();
 
   return httpServer;
 }
@@ -555,7 +556,7 @@ async function seedDatabase() {
   const productsData = [
     {
       categoryId: vId, slug: "nordvpn", name: "NordVPN",
-      logo: "https://upload.wikimedia.org/wikipedia/commons/4/41/NordVPN_logo.svg",
+      logo: "https://logo.clearbit.com/nordvpn.com",
       rating: "4.9", price: "$3.99/mo", originalPrice: "$11.99/mo", discount: "67%",
       affiliateSlug: "nordvpn", badge: "🏆 Editor's Choice",
       shortDescription: "The gold standard for privacy and blazing-fast speeds.",
@@ -568,7 +569,7 @@ async function seedDatabase() {
     },
     {
       categoryId: avId, slug: "bitdefender", name: "Bitdefender",
-      logo: "https://upload.wikimedia.org/wikipedia/en/2/2a/Bitdefender_Logo.png",
+      logo: "https://logo.clearbit.com/bitdefender.com",
       rating: "4.8", price: "$29.99/yr", originalPrice: "$84.99/yr", discount: "65%",
       affiliateSlug: "bitdefender", badge: "🛡️ Maximum Protection",
       shortDescription: "Award-winning malware detection with minimal system impact.",
@@ -581,7 +582,7 @@ async function seedDatabase() {
     },
     {
       categoryId: pmId, slug: "1password", name: "1Password",
-      logo: "https://upload.wikimedia.org/wikipedia/commons/e/e0/1Password_logo.svg",
+      logo: "https://logo.clearbit.com/1password.com",
       rating: "4.9", price: "$2.99/mo", originalPrice: "$4.99/mo", discount: "40%",
       affiliateSlug: "1password", badge: "🔑 Most Secure",
       shortDescription: "The most intuitive and secure way to manage your digital identity.",
@@ -594,7 +595,7 @@ async function seedDatabase() {
     },
     {
       categoryId: hId, slug: "siteground", name: "SiteGround",
-      logo: "https://upload.wikimedia.org/wikipedia/commons/e/ec/SiteGround_Logo.svg",
+      logo: "https://logo.clearbit.com/siteground.com",
       rating: "4.7", price: "$2.99/mo", originalPrice: "$14.99/mo", discount: "80%",
       affiliateSlug: "siteground", badge: "🚀 Top Performance",
       shortDescription: "Premium hosting managed on Google Cloud with top-tier support.",
@@ -607,7 +608,7 @@ async function seedDatabase() {
     },
     {
       categoryId: vId, slug: "expressvpn", name: "ExpressVPN",
-      logo: "https://upload.wikimedia.org/wikipedia/commons/2/22/ExpressVPN_logo.png",
+      logo: "https://logo.clearbit.com/expressvpn.com",
       rating: "4.8", price: "$6.67/mo", originalPrice: "$12.95/mo", discount: "49%",
       affiliateSlug: "expressvpn", badge: "⚡ Fastest",
       shortDescription: "Premium VPN with incredibly fast servers worldwide.",
@@ -620,7 +621,7 @@ async function seedDatabase() {
     },
     {
       categoryId: vId, slug: "surfshark", name: "Surfshark",
-      logo: "https://upload.wikimedia.org/wikipedia/commons/8/86/Surfshark_logo_2021.svg",
+      logo: "https://logo.clearbit.com/surfshark.com",
       rating: "4.7", price: "$2.49/mo", originalPrice: "$10.99/mo", discount: "77%",
       affiliateSlug: "surfshark", badge: "💰 Best Value",
       shortDescription: "Unlimited devices and great features for a low price.",

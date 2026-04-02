@@ -19,44 +19,38 @@ const BRAND_COLORS = [
   "from-emerald-500 to-emerald-700",
 ];
 
-function buildLogoUrls(src: string, websiteDomain?: string): string[] {
+function buildLogoUrls(src: string, affiliateSlug?: string): string[] {
   const urls: string[] = [];
   if (src) urls.push(src);
 
-  // Extract product domain from Clearbit URL OR from the provided websiteDomain
+  // Extract product domain from Clearbit URL (primary), or derive from affiliateSlug
   const clearbitMatch = src?.match(/logo\.clearbit\.com\/([^/?]+)/);
-  const domain = clearbitMatch?.[1] ?? websiteDomain ?? null;
+  const domain = clearbitMatch?.[1] ?? (affiliateSlug ? `${affiliateSlug}.com` : null);
 
   if (domain) {
     // If primary isn't already Clearbit, try it
     if (!clearbitMatch) {
       urls.push(`https://logo.clearbit.com/${domain}`);
     }
-    // DuckDuckGo icon service — very reliable
+    // DuckDuckGo icon service — reliable second option
     urls.push(`https://icons.duckduckgo.com/ip3/${domain}.ico`);
-    // Google favicon as final real-image fallback
+    // Google favicon always returns an image — guaranteed last resort
     urls.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=256`);
   }
 
   return urls;
 }
 
-function ProductLogo({ src, name, rank, affiliateUrl, size = "lg", className = "" }: {
+function ProductLogo({ src, name, rank, affiliateSlug, size = "lg", className = "" }: {
   src: string;
   name: string;
   rank: number;
-  affiliateUrl?: string;
+  affiliateSlug?: string;
   size?: "sm" | "lg";
   className?: string;
 }) {
   const [idx, setIdx] = useState(0);
-  const websiteDomain = useMemo(() => {
-    try {
-      if (!affiliateUrl) return undefined;
-      return new URL(affiliateUrl).hostname.replace(/^www\./, "");
-    } catch { return undefined; }
-  }, [affiliateUrl]);
-  const urls = useMemo(() => buildLogoUrls(src, websiteDomain), [src, websiteDomain]);
+  const urls = useMemo(() => buildLogoUrls(src, affiliateSlug), [src, affiliateSlug]);
   const color = BRAND_COLORS[rank % BRAND_COLORS.length];
 
   if (idx >= urls.length) {
@@ -124,7 +118,7 @@ export function ProductCard({ product, rank }: ProductCardProps) {
               src={product.logo}
               name={product.name}
               rank={rank}
-              affiliateUrl={product.affiliateUrl}
+              affiliateSlug={product.affiliateSlug}
               className="w-full h-full"
             />
           </div>
