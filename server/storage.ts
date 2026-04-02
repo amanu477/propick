@@ -50,6 +50,9 @@ export interface IStorage {
   updateLinkBioItem(id: number, item: Partial<InsertLinkBioItem>): Promise<LinkBioItem>;
   deleteLinkBioItem(id: number): Promise<void>;
 
+  // Search
+  searchProducts(query: string): Promise<Array<Product & { categorySlug: string }>>;
+
   // Admin users
   getAdminByUsername(username: string): Promise<AdminUser | undefined>;
   getAdminById(id: number): Promise<AdminUser | undefined>;
@@ -272,6 +275,40 @@ export class DatabaseStorage implements IStorage {
 
   async deleteLinkBioItem(id: number): Promise<void> {
     await db.delete(linkBioItems).where(eq(linkBioItems.id, id));
+  }
+
+  // ─── Search ────────────────────────────────────────────────────────────────
+
+  async searchProducts(query: string): Promise<Array<Product & { categorySlug: string }>> {
+    const term = `%${query}%`;
+    return await db
+      .select({
+        id: products.id,
+        categoryId: products.categoryId,
+        slug: products.slug,
+        name: products.name,
+        logo: products.logo,
+        rating: products.rating,
+        price: products.price,
+        originalPrice: products.originalPrice,
+        discount: products.discount,
+        affiliateSlug: products.affiliateSlug,
+        badge: products.badge,
+        shortDescription: products.shortDescription,
+        features: products.features,
+        pros: products.pros,
+        cons: products.cons,
+        bestFor: products.bestFor,
+        scores: products.scores,
+        detailedReview: products.detailedReview,
+        categorySlug: categories.slug,
+      })
+      .from(products)
+      .innerJoin(categories, eq(products.categoryId, categories.id))
+      .where(
+        sql`(${products.name} ILIKE ${term} OR ${products.shortDescription} ILIKE ${term} OR ${products.bestFor} ILIKE ${term})`
+      )
+      .limit(10);
   }
 
   // ─── Admin Users ───────────────────────────────────────────────────────────

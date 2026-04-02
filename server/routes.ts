@@ -73,6 +73,13 @@ export async function registerRoutes(
     res.json(product);
   });
 
+  app.get("/api/search", async (req, res) => {
+    const q = String(req.query.q || "").trim();
+    if (!q || q.length < 2) return res.json([]);
+    const results = await storage.searchProducts(q);
+    res.json(results);
+  });
+
   app.get(api.links.bio.path, async (req, res) => {
     const bioCats = await storage.getLinkBioCategories();
     const data = await Promise.all(

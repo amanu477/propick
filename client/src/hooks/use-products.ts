@@ -79,6 +79,19 @@ export function useLinkBio() {
   });
 }
 
+// Search
+export function useSearch(query: string) {
+  return useQuery({
+    queryKey: ['/api/search', query],
+    queryFn: async () => {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+      if (!res.ok) throw new Error("Search failed");
+      return res.json() as Promise<Array<{ id: number; slug: string; name: string; logo: string; shortDescription: string; bestFor: string; rating: string; categorySlug: string; affiliateSlug: string }>>;
+    },
+    enabled: query.trim().length >= 2,
+  });
+}
+
 // Dashboard Stats
 export function useDashboardStats() {
   return useQuery({

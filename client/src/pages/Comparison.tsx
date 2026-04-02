@@ -5,7 +5,7 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { ProductCard } from "@/components/ProductCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, CheckCircle2, Info, Star } from "lucide-react";
+import { AlertCircle, CheckCircle2, Info, Search, Star, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useSEO } from "@/hooks/use-seo";
 
@@ -48,6 +48,7 @@ export default function Comparison() {
   const { slug } = useParams();
   const { data: category, isLoading: isLoadingCategory } = useCategory(slug || "");
   const { data: products, isLoading: isLoadingProducts } = useProducts(slug);
+  const [filterQuery, setFilterQuery] = useState("");
 
   // Sort by overall score (average of all 4 score dimensions)
   const getOverallScore = (p: { scores: { speed: number; security: number; value: number; ease: number } }) =>
@@ -56,6 +57,18 @@ export default function Comparison() {
     ? [...products].sort((a, b) => getOverallScore(b) - getOverallScore(a))
     : undefined;
   const topPick = rankedProducts?.[0];
+
+  const filteredProducts = useMemo(() => {
+    if (!rankedProducts) return undefined;
+    const q = filterQuery.trim().toLowerCase();
+    if (!q) return rankedProducts;
+    return rankedProducts.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.shortDescription.toLowerCase().includes(q) ||
+        p.bestFor.toLowerCase().includes(q)
+    );
+  }, [rankedProducts, filterQuery]);
 
   useSEO({
     title: category
@@ -121,6 +134,27 @@ export default function Comparison() {
             <Info className="w-4 h-4" />
             <span>Last updated: {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
           </div>
+          {/* Search / Filter */}
+          <div className="mt-8 max-w-md mx-auto relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={filterQuery}
+              onChange={(e) => setFilterQuery(e.target.value)}
+              placeholder={`Search in ${category.name}...`}
+              className="w-full pl-11 pr-10 py-3 rounded-full border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm"
+              data-testid="input-category-filter"
+            />
+            {filterQuery && (
+              <button
+                onClick={() => setFilterQuery("")}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                data-testid="button-clear-filter"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -180,10 +214,10 @@ export default function Comparison() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {rankedProducts.map((product, idx) => (
+                    {filteredProducts && filteredProducts.length > 0 ? filteredProducts.map((product, idx) => (
                       <tr 
                         key={product.id} 
-                        className={`hover:bg-gray-50 transition-colors ${idx === 0 ? 'bg-yellow-50/30 border-l-4 border-l-warning' : ''}`}
+                        className={`hover:bg-gray-50 transition-colors ${idx === 0 && !filterQuery ? 'bg-yellow-50/30 border-l-4 border-l-warning' : ''}`}
                       >
                         <td className="px-6 py-4 font-bold text-gray-900">
                           <Link href={`/best/${slug}/${product.slug}`}>
@@ -207,7 +241,13 @@ export default function Comparison() {
                           </span>
                         </td>
                       </tr>
-                    ))}
+                    )) : (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-10 text-center text-gray-400 text-sm">
+                          No products match &ldquo;{filterQuery}&rdquo;
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -215,15 +255,28 @@ export default function Comparison() {
 
             {/* Product Cards List */}
             <div className="space-y-8">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-3">
                 <h2 className="text-2xl font-bold font-heading text-gray-900">Detailed Reviews</h2>
+                {filterQuery && filteredProducts && (
+                  <span className="text-sm text-gray-500">
+                    {filteredProducts.length} result{filteredProducts.length !== 1 ? "s" : ""} for &ldquo;{filterQuery}&rdquo;
+                  </span>
+                )}
               </div>
               
-              {rankedProducts.map((product, index) => (
-                <div key={product.id} id={product.slug} className="scroll-mt-24">
-                  <ProductCard product={product} rank={index + 1} />
+              {filteredProducts && filteredProducts.length > 0 ? (
+                filteredProducts.map((product, index) => (
+                  <div key={product.id} id={product.slug} className="scroll-mt-24">
+                    <ProductCard product={product} rank={index + 1} />
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-16 text-gray-400">
+                  <Search className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                  <p className="text-lg font-medium">No products match your search</p>
+                  <p className="text-sm mt-1">Try a different keyword or <button onClick={() => setFilterQuery("")} className="text-primary underline">clear the filter</button></p>
                 </div>
-              ))}
+              )}
             </div>
 
             {/* Disclosure */}
@@ -248,7 +301,7 @@ export default function Comparison() {
                   <li>
                     <a href="#" className="text-gray-600 hover:text-blue-600 hover:underline">Comparison Table</a>
                   </li>
-                  {rankedProducts.map((p, i) => (
+                  {(filteredProducts ?? rankedProducts).map((p, i) => (
                     <li key={p.id}>
                       <a href={`#${p.slug}`} className="text-gray-600 hover:text-blue-600 hover:underline flex gap-2">
                         <span className="text-gray-400">#{i + 1}</span> {p.name} Review
