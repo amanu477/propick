@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 
 import Home from "@/pages/Home";
 import Comparison from "@/pages/Comparison";
+import ProductPage from "@/pages/ProductPage";
 import LinkBio from "@/pages/LinkBio";
 import AdminLogin from "@/pages/AdminLogin";
 import Admin from "@/pages/Admin";
@@ -15,6 +16,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/best/:categorySlug/:productSlug" component={ProductPage} />
       <Route path="/best/:slug" component={Comparison} />
       <Route path="/links" component={LinkBio} />
       <Route path="/admin/login" component={AdminLogin} />

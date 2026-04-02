@@ -5,9 +5,28 @@ import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Shield, Globe, Lock, Cpu, Star } from "lucide-react";
 import { motion } from "framer-motion";
+import { useSEO } from "@/hooks/use-seo";
 
 export default function Home() {
   const { data: categories, isLoading } = useCategories();
+
+  useSEO({
+    title: "Best VPNs, Antivirus & Password Managers",
+    description: "Expert reviews, head-to-head comparisons, and unbiased rankings of the best VPNs, antivirus software, password managers, and web hosting providers.",
+    url: window.location.origin,
+    jsonLd: {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: "ProPicks",
+      url: window.location.origin,
+      description: "Expert reviews and rankings of the best digital security software.",
+      potentialAction: {
+        "@type": "SearchAction",
+        target: `${window.location.origin}/best/{search_term_string}`,
+        "query-input": "required name=search_term_string",
+      },
+    },
+  });
 
   const features = [
     { icon: Shield, title: "Unbiased Reviews", text: "We test every product rigorously to ensure our ratings are 100% honest." },

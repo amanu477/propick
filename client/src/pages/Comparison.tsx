@@ -7,6 +7,7 @@ import { ProductCard } from "@/components/ProductCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, CheckCircle2, Info, Star } from "lucide-react";
 import { motion } from "framer-motion";
+import { useSEO } from "@/hooks/use-seo";
 
 function TableLogo({ src, name, affiliateSlug }: { src: string; name: string; affiliateSlug?: string }) {
   const [idx, setIdx] = useState(0);
@@ -55,6 +56,33 @@ export default function Comparison() {
     ? [...products].sort((a, b) => getOverallScore(b) - getOverallScore(a))
     : undefined;
   const topPick = rankedProducts?.[0];
+
+  useSEO({
+    title: category
+      ? `${category.title} — Expert Reviews & Comparisons ${new Date().getFullYear()}`
+      : "Product Comparisons",
+    description: category
+      ? `${category.description} Compare top ${category.name} with expert scores, pricing, pros & cons.`
+      : "Compare top products with expert reviews.",
+    url: `${window.location.origin}/best/${slug}`,
+    jsonLd: category && rankedProducts?.length
+      ? {
+          "@context": "https://schema.org",
+          "@type": "ItemList",
+          name: category.title,
+          description: category.description,
+          url: `${window.location.origin}/best/${slug}`,
+          numberOfItems: rankedProducts.length,
+          itemListElement: rankedProducts.map((p, i) => ({
+            "@type": "ListItem",
+            position: i + 1,
+            name: p.name,
+            url: `${window.location.origin}/best/${slug}/${p.slug}`,
+            description: p.shortDescription,
+          })),
+        }
+      : undefined,
+  });
 
   if (isLoadingCategory || isLoadingProducts) {
     return (
@@ -158,10 +186,12 @@ export default function Comparison() {
                         className={`hover:bg-gray-50 transition-colors ${idx === 0 ? 'bg-yellow-50/30 border-l-4 border-l-warning' : ''}`}
                       >
                         <td className="px-6 py-4 font-bold text-gray-900">
-                          <div className="flex items-center gap-3">
-                            <TableLogo src={product.logo} name={product.name} affiliateSlug={product.affiliateSlug} />
-                            {product.name}
-                          </div>
+                          <Link href={`/best/${slug}/${product.slug}`}>
+                            <div className="flex items-center gap-3 hover:text-blue-600 cursor-pointer">
+                              <TableLogo src={product.logo} name={product.name} affiliateSlug={product.affiliateSlug} />
+                              {product.name}
+                            </div>
+                          </Link>
                         </td>
                         <td className="px-6 py-4 font-bold text-gray-900">
                           <div className="flex items-center gap-1">

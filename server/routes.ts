@@ -509,6 +509,44 @@ Be realistic and accurate. Use real product data if you know it. Make all scores
     }
   });
 
+  // ─── SEO: Sitemap & Robots ──────────────────────────────────────────────────
+
+  app.get("/sitemap.xml", async (req, res) => {
+    try {
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const categories = await storage.getCategories();
+      const allProducts = await storage.getProducts();
+
+      const urls: string[] = [
+        `<url><loc>${baseUrl}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>`,
+      ];
+
+      for (const cat of categories) {
+        urls.push(`<url><loc>${baseUrl}/best/${cat.slug}</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>`);
+        const catProducts = allProducts.filter((p) => p.categoryId === cat.id && p.status === "active");
+        for (const p of catProducts) {
+          urls.push(`<url><loc>${baseUrl}/best/${cat.slug}/${p.slug}</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>`);
+        }
+      }
+
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls.join("\n")}
+</urlset>`;
+
+      res.header("Content-Type", "application/xml");
+      res.send(xml);
+    } catch (err) {
+      res.status(500).send("Error generating sitemap");
+    }
+  });
+
+  app.get("/robots.txt", (req, res) => {
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    res.header("Content-Type", "text/plain");
+    res.send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: ${baseUrl}/sitemap.xml\n`);
+  });
+
   // ─── Seed ───────────────────────────────────────────────────────────────────
 
   await seedDatabase();
