@@ -154,7 +154,7 @@ export function Navbar() {
           </Link>
 
           {/* Desktop: nav links + always-visible search */}
-          <div className="hidden md:flex items-center gap-1 flex-1">
+          <div className="hidden md:flex items-center gap-1 ml-auto">
             {navItems.map((item) => (
               <Link key={item.href} href={item.href}>
                 <span
@@ -170,8 +170,8 @@ export function Navbar() {
               </Link>
             ))}
 
-            {/* Search always visible on the right */}
-            <div className="ml-auto">
+            {/* Search always visible */}
+            <div className="ml-3">
               <SearchField />
             </div>
           </div>
