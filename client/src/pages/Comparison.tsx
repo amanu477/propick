@@ -8,30 +8,26 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, CheckCircle2, Info, Star } from "lucide-react";
 import { motion } from "framer-motion";
 
-function extractDomain(src: string): string | null {
-  try {
-    const clearbitMatch = src.match(/logo\.clearbit\.com\/([^/?]+)/);
-    if (clearbitMatch) return clearbitMatch[1];
-    const url = new URL(src);
-    return url.hostname.replace(/^www\./, "");
-  } catch {
-    return null;
-  }
-}
-
-function TableLogo({ src, name }: { src: string; name: string }) {
+function TableLogo({ src, name, affiliateUrl }: { src: string; name: string; affiliateUrl?: string }) {
   const [idx, setIdx] = useState(0);
   const urls = useMemo(() => {
     const list: string[] = [];
     if (src) list.push(src);
-    const domain = extractDomain(src);
+
+    // Try to get product domain from Clearbit URL or affiliateUrl
+    const clearbitMatch = src?.match(/logo\.clearbit\.com\/([^/?]+)/);
+    let domain = clearbitMatch?.[1] ?? null;
+    if (!domain && affiliateUrl) {
+      try { domain = new URL(affiliateUrl).hostname.replace(/^www\./, ""); } catch {}
+    }
+
     if (domain) {
-      if (!src.includes("logo.clearbit.com")) list.push(`https://logo.clearbit.com/${domain}`);
+      if (!clearbitMatch) list.push(`https://logo.clearbit.com/${domain}`);
       list.push(`https://icons.duckduckgo.com/ip3/${domain}.ico`);
       list.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=64`);
     }
     return list;
-  }, [src]);
+  }, [src, affiliateUrl]);
 
   if (idx >= urls.length) {
     return (
@@ -166,7 +162,7 @@ export default function Comparison() {
                       >
                         <td className="px-6 py-4 font-bold text-gray-900">
                           <div className="flex items-center gap-3">
-                            <TableLogo src={product.logo} name={product.name} />
+                            <TableLogo src={product.logo} name={product.name} affiliateUrl={product.affiliateUrl} />
                             {product.name}
                           </div>
                         </td>

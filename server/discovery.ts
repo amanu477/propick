@@ -121,7 +121,7 @@ Be realistic and accurate. All scores must be between 75-99.`;
         categoryId,
         name: generated.name,
         slug: generated.slug,
-        logo: generated.logo || `https://logo.clearbit.com/${product.website}`,
+        logo: `https://logo.clearbit.com/${product.website}`,
         rating: generated.rating || product.rating || "4.5",
         price: generated.price || product.price || "N/A",
         originalPrice: generated.originalPrice || "N/A",

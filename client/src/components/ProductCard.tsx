@@ -19,47 +19,44 @@ const BRAND_COLORS = [
   "from-emerald-500 to-emerald-700",
 ];
 
-function extractDomain(src: string): string | null {
-  try {
-    // Handle clearbit URLs like https://logo.clearbit.com/nordvpn.com
-    const clearbitMatch = src.match(/logo\.clearbit\.com\/([^/?]+)/);
-    if (clearbitMatch) return clearbitMatch[1];
-    // Handle full URLs
-    const url = new URL(src);
-    return url.hostname.replace(/^www\./, "");
-  } catch {
-    return null;
-  }
-}
-
-function buildLogoUrls(src: string): string[] {
+function buildLogoUrls(src: string, websiteDomain?: string): string[] {
   const urls: string[] = [];
   if (src) urls.push(src);
 
-  const domain = extractDomain(src);
+  // Extract product domain from Clearbit URL OR from the provided websiteDomain
+  const clearbitMatch = src?.match(/logo\.clearbit\.com\/([^/?]+)/);
+  const domain = clearbitMatch?.[1] ?? websiteDomain ?? null;
+
   if (domain) {
-    // If the stored URL isn't already Clearbit, try Clearbit
-    if (!src.includes("logo.clearbit.com")) {
+    // If primary isn't already Clearbit, try it
+    if (!clearbitMatch) {
       urls.push(`https://logo.clearbit.com/${domain}`);
     }
-    // Always try DuckDuckGo icon (very reliable)
+    // DuckDuckGo icon service — very reliable
     urls.push(`https://icons.duckduckgo.com/ip3/${domain}.ico`);
-    // Google favicon as last real-image fallback
+    // Google favicon as final real-image fallback
     urls.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=256`);
   }
 
   return urls;
 }
 
-function ProductLogo({ src, name, rank, size = "lg", className = "" }: {
+function ProductLogo({ src, name, rank, affiliateUrl, size = "lg", className = "" }: {
   src: string;
   name: string;
   rank: number;
+  affiliateUrl?: string;
   size?: "sm" | "lg";
   className?: string;
 }) {
   const [idx, setIdx] = useState(0);
-  const urls = useMemo(() => buildLogoUrls(src), [src]);
+  const websiteDomain = useMemo(() => {
+    try {
+      if (!affiliateUrl) return undefined;
+      return new URL(affiliateUrl).hostname.replace(/^www\./, "");
+    } catch { return undefined; }
+  }, [affiliateUrl]);
+  const urls = useMemo(() => buildLogoUrls(src, websiteDomain), [src, websiteDomain]);
   const color = BRAND_COLORS[rank % BRAND_COLORS.length];
 
   if (idx >= urls.length) {
@@ -127,6 +124,7 @@ export function ProductCard({ product, rank }: ProductCardProps) {
               src={product.logo}
               name={product.name}
               rank={rank}
+              affiliateUrl={product.affiliateUrl}
               className="w-full h-full"
             />
           </div>
