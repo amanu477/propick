@@ -6,90 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useSearch } from "@/hooks/use-products";
 
-function SearchBar({ onClose }: { onClose: () => void }) {
-  const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const [, navigate] = useLocation();
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query), 300);
-    return () => clearTimeout(timer);
-  }, [query]);
-
-  const { data: results, isLoading } = useSearch(debouncedQuery);
-
-  const handleSelect = (categorySlug: string, productSlug: string) => {
-    navigate(`/best/${categorySlug}/${productSlug}`);
-    onClose();
-  };
-
-  return (
-    <div className="relative flex-1 max-w-xl" ref={dropdownRef}>
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input
-          ref={inputRef}
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search products, VPNs, antivirus..."
-          className="w-full pl-10 pr-4 py-2 rounded-full border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-          data-testid="input-global-search"
-          onKeyDown={(e) => e.key === "Escape" && onClose()}
-        />
-      </div>
-
-      {debouncedQuery.length >= 2 && (
-        <div className="absolute top-full mt-2 left-0 right-0 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50">
-          {isLoading && (
-            <div className="px-4 py-6 text-center text-sm text-gray-400">Searching...</div>
-          )}
-          {!isLoading && results && results.length === 0 && (
-            <div className="px-4 py-6 text-center text-sm text-gray-400">
-              No products found for &ldquo;{debouncedQuery}&rdquo;
-            </div>
-          )}
-          {!isLoading && results && results.length > 0 && (
-            <ul>
-              {results.map((result) => (
-                <li key={result.id}>
-                  <button
-                    onClick={() => handleSelect(result.categorySlug, result.slug)}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left group"
-                    data-testid={`search-result-${result.id}`}
-                  >
-                    <ProductLogo src={result.logo} name={result.name} affiliateSlug={result.affiliateSlug} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-900 text-sm">{result.name}</span>
-                        <span className="flex items-center gap-0.5 text-xs text-amber-500 font-medium">
-                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                          {result.rating}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 truncate">{result.shortDescription}</p>
-                    </div>
-                    <span className="text-xs text-gray-400 capitalize shrink-0 group-hover:text-primary transition-colors flex items-center gap-1">
-                      {result.categorySlug.replace(/-/g, " ")}
-                      <ArrowRight className="w-3 h-3" />
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function ProductLogo({ src, name, affiliateSlug }: { src: string; name: string; affiliateSlug: string }) {
   const [idx, setIdx] = useState(0);
   const urls: string[] = [];
@@ -117,6 +33,115 @@ function ProductLogo({ src, name, affiliateSlug }: { src: string; name: string; 
   );
 }
 
+function SearchOverlay({ onClose }: { onClose: () => void }) {
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const { data: results, isLoading } = useSearch(debouncedQuery);
+
+  const handleSelect = (categorySlug: string, productSlug: string) => {
+    navigate(`/best/${categorySlug}/${productSlug}`);
+    onClose();
+  };
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
+        onClick={onClose}
+      />
+
+      {/* Search panel — drops below the navbar */}
+      <div className="absolute top-full left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-xl">
+        <div className="max-w-3xl mx-auto px-4 py-4">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search products, VPNs, antivirus, password managers..."
+              className="w-full pl-11 pr-10 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              data-testid="input-global-search"
+              onKeyDown={(e) => e.key === "Escape" && onClose()}
+            />
+            {query && (
+              <button
+                onClick={() => setQuery("")}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Results */}
+          {debouncedQuery.length >= 2 && (
+            <div className="mt-2 rounded-xl border border-gray-100 overflow-hidden bg-white">
+              {isLoading && (
+                <div className="px-4 py-6 text-center text-sm text-gray-400">Searching...</div>
+              )}
+              {!isLoading && results && results.length === 0 && (
+                <div className="px-4 py-8 text-center text-sm text-gray-400">
+                  No products found for &ldquo;{debouncedQuery}&rdquo;
+                </div>
+              )}
+              {!isLoading && results && results.length > 0 && (
+                <ul className="divide-y divide-gray-50">
+                  {results.map((result) => (
+                    <li key={result.id}>
+                      <button
+                        onClick={() => handleSelect(result.categorySlug, result.slug)}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left group"
+                        data-testid={`search-result-${result.id}`}
+                      >
+                        <ProductLogo src={result.logo} name={result.name} affiliateSlug={result.affiliateSlug} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-900 text-sm">{result.name}</span>
+                            <span className="flex items-center gap-0.5 text-xs text-amber-500 font-medium">
+                              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                              {result.rating}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 truncate">{result.shortDescription}</p>
+                        </div>
+                        <span className="text-xs text-gray-400 capitalize shrink-0 group-hover:text-primary transition-colors flex items-center gap-1">
+                          {result.categorySlug.replace(/-/g, " ")}
+                          <ArrowRight className="w-3 h-3" />
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {debouncedQuery.length < 2 && (
+            <p className="mt-3 text-xs text-gray-400 text-center">
+              Type at least 2 characters to search
+            </p>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function Navbar() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
@@ -133,64 +158,48 @@ export function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-lg border-b border-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16 gap-4">
-          {/* Logo */}
-          {!searchOpen && (
-            <Link href="/" className="flex items-center space-x-2 shrink-0">
-              <div className="bg-primary/10 p-2 rounded-lg">
-                <ShieldCheck className="w-6 h-6 text-primary" />
-              </div>
-              <span className="text-xl font-bold font-heading text-gray-900 tracking-tight">
-                Pick<span className="text-primary">Vera</span>
-              </span>
-            </Link>
-          )}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+        <div className="flex items-center h-16 gap-10">
 
-          {/* Desktop Nav + Search */}
-          <div className="hidden md:flex items-center flex-1 gap-2">
-            {!searchOpen ? (
-              <>
-                <div className="flex items-center space-x-1">
-                  {navItems.map((item) => (
-                    <Link key={item.href} href={item.href}>
-                      <span
-                        className={cn(
-                          "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer",
-                          isActive(item.href)
-                            ? "bg-primary text-white shadow-md shadow-primary/20"
-                            : "text-gray-600 hover:text-primary hover:bg-primary/5"
-                        )}
-                      >
-                        {item.label}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setSearchOpen(true)}
-                  className="ml-auto rounded-full"
-                  data-testid="button-open-search"
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2 shrink-0">
+            <div className="bg-primary/10 p-2 rounded-lg">
+              <ShieldCheck className="w-6 h-6 text-primary" />
+            </div>
+            <span className="text-xl font-bold font-heading text-gray-900 tracking-tight">
+              Pick<span className="text-primary">Vera</span>
+            </span>
+          </Link>
+
+          {/* Desktop Nav */}
+          <div className="hidden md:flex items-center gap-1 flex-1">
+            {navItems.map((item) => (
+              <Link key={item.href} href={item.href}>
+                <span
+                  className={cn(
+                    "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer whitespace-nowrap",
+                    isActive(item.href)
+                      ? "bg-primary text-white shadow-md shadow-primary/20"
+                      : "text-gray-600 hover:text-primary hover:bg-primary/5"
+                  )}
                 >
-                  <Search className="w-5 h-5 text-gray-500" />
-                </Button>
-              </>
-            ) : (
-              <>
-                <SearchBar onClose={() => setSearchOpen(false)} />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setSearchOpen(false)}
-                  className="rounded-full shrink-0"
-                  data-testid="button-close-search"
-                >
-                  <X className="w-5 h-5 text-gray-500" />
-                </Button>
-              </>
-            )}
+                  {item.label}
+                </span>
+              </Link>
+            ))}
+
+            {/* Search icon — far right */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSearchOpen((v) => !v)}
+              className={cn("ml-auto rounded-full", searchOpen && "bg-gray-100")}
+              data-testid="button-open-search"
+            >
+              {searchOpen
+                ? <X className="w-5 h-5 text-gray-600" />
+                : <Search className="w-5 h-5 text-gray-500" />}
+            </Button>
           </div>
 
           {/* Mobile: search icon + hamburger */}
@@ -199,9 +208,12 @@ export function Navbar() {
               variant="ghost"
               size="icon"
               onClick={() => setSearchOpen((v) => !v)}
+              className={cn("rounded-full", searchOpen && "bg-gray-100")}
               data-testid="button-mobile-search"
             >
-              {searchOpen ? <X className="w-5 h-5 text-gray-700" /> : <Search className="w-5 h-5 text-gray-700" />}
+              {searchOpen
+                ? <X className="w-5 h-5 text-gray-700" />
+                : <Search className="w-5 h-5 text-gray-700" />}
             </Button>
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild>
@@ -234,11 +246,9 @@ export function Navbar() {
           </div>
         </div>
 
-        {/* Mobile search bar (below nav) */}
+        {/* Search overlay — drops below navbar on both desktop and mobile */}
         {searchOpen && (
-          <div className="md:hidden pb-3">
-            <SearchBar onClose={() => setSearchOpen(false)} />
-          </div>
+          <SearchOverlay onClose={() => setSearchOpen(false)} />
         )}
       </div>
     </nav>
