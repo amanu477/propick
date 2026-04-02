@@ -31,7 +31,7 @@ function setLink(rel: string, href: string) {
 
 export function useSEO({ title, description, url, image, type = "website", jsonLd }: SEOProps) {
   useEffect(() => {
-    const fullTitle = `${title} | ProPicks`;
+    const fullTitle = `${title} | PickVera`;
     const pageUrl = url || window.location.href;
 
     document.title = fullTitle;
@@ -43,7 +43,7 @@ export function useSEO({ title, description, url, image, type = "website", jsonL
     setMeta("og:description", description, "property");
     setMeta("og:url", pageUrl, "property");
     setMeta("og:type", type, "property");
-    setMeta("og:site_name", "ProPicks", "property");
+    setMeta("og:site_name", "PickVera", "property");
     if (image) setMeta("og:image", image, "property");
 
     setMeta("twitter:card", "summary_large_image", "name");

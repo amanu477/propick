@@ -45,7 +45,7 @@ export default function AdminLogin() {
               <Shield className="w-8 h-8 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">ProPicks</h1>
+              <h1 className="text-2xl font-bold text-white">PickVera</h1>
               <p className="text-blue-300 text-sm">Admin Portal</p>
             </div>
           </div>

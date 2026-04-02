@@ -45,7 +45,7 @@ app.use(express.urlencoded({ extended: false }));
 const MemStore = MemoryStore(session);
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "propicks-admin-secret-key-change-in-production",
+    secret: process.env.SESSION_SECRET || "pickvera-admin-secret-key-change-in-production",
     resave: false,
     saveUninitialized: false,
     store: new MemStore({ checkPeriod: 86400000 }),

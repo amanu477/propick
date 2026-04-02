@@ -1254,7 +1254,7 @@ export default function Admin() {
           <div className="flex items-center gap-3">
             <div className="p-1.5 bg-blue-600 rounded-lg"><Shield className="w-5 h-5 text-white" /></div>
             <div>
-              <span className="font-bold text-gray-900">ProPicks</span>
+              <span className="font-bold text-gray-900">PickVera</span>
               <span className="text-gray-400 text-sm ml-2">Admin</span>
             </div>
           </div>

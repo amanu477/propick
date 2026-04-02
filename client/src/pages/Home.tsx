@@ -17,7 +17,7 @@ export default function Home() {
     jsonLd: {
       "@context": "https://schema.org",
       "@type": "WebSite",
-      name: "ProPicks",
+      name: "PickVera",
       url: window.location.origin,
       description: "Expert reviews and rankings of the best digital security software.",
       potentialAction: {
@@ -124,7 +124,7 @@ export default function Home() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
               <div>
-                <h2 className="text-3xl font-bold font-heading text-gray-900 mb-6">Why ProPicks?</h2>
+                <h2 className="text-3xl font-bold font-heading text-gray-900 mb-6">Why PickVera?</h2>
                 <p className="text-gray-600 text-lg mb-8 leading-relaxed">
                   We don't just aggregate specs. We purchase, install, and rigorously test every piece of software we review. Our team of security experts spends hundreds of hours validating claims, testing speeds, and verifying no-logs policies.
                 </p>

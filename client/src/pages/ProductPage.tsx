@@ -79,7 +79,7 @@ export default function ProductPage() {
             ratingValue: product.rating,
             bestRating: "5",
           },
-          author: { "@type": "Organization", name: "ProPicks" },
+          author: { "@type": "Organization", name: "PickVera" },
           reviewBody: product.detailedReview,
         },
       }
