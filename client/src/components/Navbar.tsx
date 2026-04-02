@@ -27,65 +27,62 @@ function ProductLogo({ src, name, affiliateSlug }: { src: string; name: string; 
   );
 }
 
-function InlineSearch({ onClose }: { onClose: () => void }) {
+function SearchField() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [, navigate] = useLocation();
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query), 300);
     return () => clearTimeout(timer);
   }, [query]);
 
+  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        onClose();
+        setDebouncedQuery("");
+        setQuery("");
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [onClose]);
+  }, []);
 
   const { data: results, isLoading } = useSearch(debouncedQuery);
 
   const handleSelect = (categorySlug: string, productSlug: string) => {
     navigate(`/best/${categorySlug}/${productSlug}`);
-    onClose();
+    setQuery("");
+    setDebouncedQuery("");
   };
 
   const showDropdown = debouncedQuery.length >= 2;
 
   return (
-    <div ref={wrapperRef} className="relative flex items-center">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-        <input
-          ref={inputRef}
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search products..."
-          className="w-44 pl-8 pr-7 py-1.5 text-sm rounded-full border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent focus:w-56 transition-all duration-200"
-          data-testid="input-global-search"
-          onKeyDown={(e) => e.key === "Escape" && onClose()}
-        />
-        {query && (
-          <button
-            onClick={() => setQuery("")}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-          >
-            <X className="w-3 h-3" />
-          </button>
-        )}
-      </div>
+    <div ref={wrapperRef} className="relative">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search products..."
+        className="w-44 pl-8 pr-7 py-1.5 text-sm rounded-full border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent focus:w-56 transition-all duration-200"
+        data-testid="input-global-search"
+        onKeyDown={(e) => e.key === "Escape" && (setQuery(""), setDebouncedQuery(""))}
+      />
+      {query && (
+        <button
+          onClick={() => { setQuery(""); setDebouncedQuery(""); }}
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          data-testid="button-clear-search"
+        >
+          <X className="w-3 h-3" />
+        </button>
+      )}
 
+      {/* Results dropdown */}
       {showDropdown && (
         <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50">
           {isLoading && (
@@ -116,9 +113,7 @@ function InlineSearch({ onClose }: { onClose: () => void }) {
                       </div>
                       <p className="text-xs text-gray-400 truncate">{result.shortDescription}</p>
                     </div>
-                    <span className="text-xs text-gray-300 capitalize shrink-0 group-hover:text-primary transition-colors">
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </span>
+                    <ArrowRight className="w-3.5 h-3.5 text-gray-300 shrink-0 group-hover:text-primary transition-colors" />
                   </button>
                 </li>
               ))}
@@ -133,7 +128,6 @@ function InlineSearch({ onClose }: { onClose: () => void }) {
 export function Navbar() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
 
   const navItems = [
     { label: "Best VPNs", href: "/best/vpn" },
@@ -147,7 +141,7 @@ export function Navbar() {
   return (
     <nav className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-lg border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center h-16 gap-10">
+        <div className="flex items-center h-16 gap-8">
 
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 shrink-0">
@@ -159,7 +153,7 @@ export function Navbar() {
             </span>
           </Link>
 
-          {/* Desktop Nav */}
+          {/* Desktop: nav links + always-visible search */}
           <div className="hidden md:flex items-center gap-1 flex-1">
             {navItems.map((item) => (
               <Link key={item.href} href={item.href}>
@@ -176,46 +170,14 @@ export function Navbar() {
               </Link>
             ))}
 
-            {/* Search — right side */}
-            <div className="ml-auto flex items-center gap-2">
-              {searchOpen ? (
-                <>
-                  <InlineSearch onClose={() => setSearchOpen(false)} />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setSearchOpen(false)}
-                    className="rounded-full shrink-0 h-8 w-8"
-                    data-testid="button-close-search"
-                  >
-                    <X className="w-4 h-4 text-gray-500" />
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setSearchOpen(true)}
-                  className="rounded-full h-8 w-8"
-                  data-testid="button-open-search"
-                >
-                  <Search className="w-4 h-4 text-gray-500" />
-                </Button>
-              )}
+            {/* Search always visible on the right */}
+            <div className="ml-auto">
+              <SearchField />
             </div>
           </div>
 
-          {/* Mobile: search icon + hamburger */}
+          {/* Mobile: hamburger only */}
           <div className="flex md:hidden items-center gap-1 ml-auto">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSearchOpen((v) => !v)}
-              className="rounded-full h-8 w-8"
-              data-testid="button-mobile-search"
-            >
-              {searchOpen ? <X className="w-4 h-4 text-gray-700" /> : <Search className="w-4 h-4 text-gray-700" />}
-            </Button>
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -247,12 +209,10 @@ export function Navbar() {
           </div>
         </div>
 
-        {/* Mobile inline search (below the main bar) */}
-        {searchOpen && (
-          <div className="md:hidden pb-3 flex justify-center">
-            <InlineSearch onClose={() => setSearchOpen(false)} />
-          </div>
-        )}
+        {/* Mobile: search bar always visible below the nav row */}
+        <div className="md:hidden pb-3">
+          <SearchField />
+        </div>
       </div>
     </nav>
   );
