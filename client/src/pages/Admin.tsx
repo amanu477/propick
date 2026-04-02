@@ -15,7 +15,7 @@ import {
   Shield, LogOut, Plus, Pencil, Trash2, MousePointerClick,
   TrendingUp, Link as LinkIcon, DollarSign, LayoutDashboard,
   Tag, Package, ExternalLink, List, Sparkles, Loader2,
-  Zap, CheckCircle, XCircle, Clock, Copy, Check, Download
+  Zap, CheckCircle, XCircle, Clock, Copy, Check
 } from "lucide-react";
 import type { Category, Product, AffiliateLink, LinkBioCategory, LinkBioItem, PendingProduct } from "@shared/schema";
 
@@ -946,6 +946,13 @@ function AutomationTab() {
     queryFn: () => fetch("/api/admin/pending-products?status=pending", { credentials: "include" }).then(r => r.json()),
   });
 
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ["/api/admin/categories"],
+    queryFn: () => apiFetch("/api/admin/categories"),
+  });
+
+  const catMap = Object.fromEntries(categories.map((c) => [c.id, c]));
+
   const approveMutation = useMutation({
     mutationFn: (id: number) => fetch(`/api/admin/pending-products/${id}/approve`, { method: "POST", credentials: "include" }).then(r => r.json()),
     onSuccess: () => {
@@ -972,86 +979,6 @@ function AutomationTab() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const downloadN8nWorkflow = () => {
-    const workflow = {
-      name: "ProPicks — Auto Product Import",
-      nodes: [
-        {
-          parameters: { rule: { interval: [{ field: "cronExpression", expression: "0 8 * * *" }] } },
-          id: "1", name: "Schedule Trigger", type: "n8n-nodes-base.scheduleTrigger", typeVersion: 1.2, position: [0, 300],
-        },
-        {
-          parameters: {
-            url: `${window.location.origin}/api/categories`,
-            options: {},
-          },
-          id: "2", name: "Get Categories", type: "n8n-nodes-base.httpRequest", typeVersion: 4.2, position: [220, 300],
-        },
-        {
-          parameters: {
-            jsCode: `// Add your product data source here.\n// Example: return items from an affiliate API or a hardcoded list.\nconst categories = $input.all().map(i => i.json);\nconst products = [\n  { productName: "NordVPN", category: "VPNs", price: "$3.99/mo", rating: 4.9 },\n  { productName: "ExpressVPN", category: "VPNs", price: "$6.67/mo", rating: 4.7 },\n];\nreturn products.map(p => ({ json: p }));`,
-          },
-          id: "3", name: "Prepare Product List", type: "n8n-nodes-base.code", typeVersion: 2, position: [440, 300],
-        },
-        {
-          parameters: {
-            resource: "chat",
-            model: "gpt-4o",
-            messages: {
-              values: [
-                {
-                  role: "user",
-                  content: `You are a product review expert for an affiliate marketing site.\nWrite a review for: {{$json.productName}} (Category: {{$json.category}})\nPrice: {{$json.price}} | Rating: {{$json.rating}}/5\n\nReturn ONLY valid JSON:\n{\n  "name": "Product Name",\n  "slug": "product-slug",\n  "shortDescription": "1-2 sentence summary",\n  "detailedReview": "3-4 paragraph honest review",\n  "pros": ["Pro 1", "Pro 2", "Pro 3"],\n  "cons": ["Con 1", "Con 2"],\n  "bestFor": "Who this is best for",\n  "features": ["Feature 1", "Feature 2", "Feature 3"],\n  "badge": "Best Value",\n  "scores": {"speed": 88, "security": 92, "value": 85, "ease": 90}\n}`,
-                },
-              ],
-            },
-            options: { responseFormat: "json_object" },
-          },
-          id: "4", name: "AI Generate Review", type: "@n8n/n8n-nodes-langchain.openAi", typeVersion: 1.8, position: [660, 300],
-        },
-        {
-          parameters: {
-            jsCode: `const aiText = $json.message?.content || $json.choices?.[0]?.message?.content || "{}";\nconst ai = JSON.parse(aiText);\nconst src = $('Prepare Product List').first().json;\nreturn [{\n  json: {\n    ...ai,\n    categoryId: 1,\n    price: src.price,\n    rating: String(src.rating),\n    affiliateSlug: ai.slug,\n    affiliateUrl: "https://example.com/aff/" + ai.slug,\n    affiliateProgram: ai.name + " Partners",\n    commission: "40%",\n    cookieDays: 30,\n    source: "n8n",\n  }\n}];`,
-          },
-          id: "5", name: "Format for Webhook", type: "n8n-nodes-base.code", typeVersion: 2, position: [880, 300],
-        },
-        {
-          parameters: {
-            method: "POST",
-            url: webhookUrl,
-            authentication: "genericCredentialType",
-            genericAuthType: "httpHeaderAuth",
-            sendBody: true,
-            contentType: "json",
-            body: { mode: "raw", raw: "={{ $json }}" },
-            options: {},
-          },
-          id: "6", name: "Send to ProPicks", type: "n8n-nodes-base.httpRequest", typeVersion: 4.2, position: [1100, 300],
-        },
-      ],
-      connections: {
-        "Schedule Trigger": { main: [[{ node: "Get Categories", type: "main", index: 0 }]] },
-        "Get Categories": { main: [[{ node: "Prepare Product List", type: "main", index: 0 }]] },
-        "Prepare Product List": { main: [[{ node: "AI Generate Review", type: "main", index: 0 }]] },
-        "AI Generate Review": { main: [[{ node: "Format for Webhook", type: "main", index: 0 }]] },
-        "Format for Webhook": { main: [[{ node: "Send to ProPicks", type: "main", index: 0 }]] },
-      },
-      pinData: {},
-      settings: { executionOrder: "v1" },
-      staticData: null,
-      tags: [],
-      triggerCount: 0,
-      updatedAt: new Date().toISOString(),
-      versionId: "1",
-    };
-    const blob = new Blob([JSON.stringify(workflow, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "propicks-n8n-workflow.json";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   const statusBadge = (status: string) => {
     if (status === "pending") return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200"><Clock className="w-3 h-3 mr-1" />Pending</Badge>;
@@ -1154,51 +1081,6 @@ function AutomationTab() {
         </Card>
       </div>
 
-      {/* n8n Setup Guide */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Zap className="w-4 h-4 text-purple-500" /> n8n Workflow Setup
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-gray-600">Connect n8n to this endpoint to automate product imports. The workflow below runs on a schedule, fetches affiliate products, generates AI reviews, and sends them here for your approval.</p>
-          <div className="bg-gray-50 rounded-lg p-4 text-sm space-y-3 font-mono">
-            <div><span className="text-purple-600 font-bold">Step 1 — Trigger:</span> Schedule Trigger → every day at 8am</div>
-            <div><span className="text-purple-600 font-bold">Step 2 — Get Categories:</span> HTTP Request → GET {window.location.origin}/api/categories</div>
-            <div><span className="text-purple-600 font-bold">Step 3 — Fetch Products:</span> Code node → add your product list or affiliate API</div>
-            <div><span className="text-purple-600 font-bold">Step 4 — AI Review:</span> OpenAI node (gpt-4o) → generate review JSON</div>
-            <div><span className="text-purple-600 font-bold">Step 5 — Format:</span> Code node → map fields to webhook format</div>
-            <div><span className="text-purple-600 font-bold">Step 6 — Send Here:</span> HTTP Request → POST {webhookUrl}</div>
-            <div className="text-xs text-gray-500">Add header: <code>x-api-key: your_WEBHOOK_API_KEY</code></div>
-          </div>
-          <Button onClick={downloadN8nWorkflow} className="w-full bg-purple-600 hover:bg-purple-700 text-white">
-            <Download className="w-4 h-4 mr-2" /> Download n8n Workflow JSON
-          </Button>
-          <p className="text-xs text-gray-400">Import this file directly into n8n (Workflows → Import from file). Then set your OpenAI credentials and add your WEBHOOK_API_KEY as an HTTP Header Auth credential named "ProPicks API Key".</p>
-          <div className="bg-blue-50 rounded-lg p-4 text-sm">
-            <p className="font-semibold text-blue-800 mb-2">AI Prompt Template (paste in n8n OpenAI node):</p>
-            <pre className="text-xs text-blue-700 whitespace-pre-wrap">{`You are a product review expert for an affiliate marketing site.
-Write a review for: {{$json.productName}} (Category: {{$json.category}})
-Price: {{$json.price}} | Rating: {{$json.rating}}/5
-
-Return ONLY valid JSON with this exact structure:
-{
-  "name": "Product Name",
-  "slug": "product-name",
-  "shortDescription": "1-2 sentence summary",
-  "detailedReview": "3-4 paragraph honest review",
-  "pros": ["Pro 1", "Pro 2", "Pro 3"],
-  "cons": ["Con 1", "Con 2"],
-  "bestFor": "Who this is best for",
-  "features": ["Feature 1", "Feature 2", "Feature 3"],
-  "badge": "Best Value",
-  "scores": {"speed": 88, "security": 92, "value": 85, "ease": 90}
-}`}</pre>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Approval Queue */}
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -1219,76 +1101,101 @@ Return ONLY valid JSON with this exact structure:
             <p className="text-sm mt-1">Products submitted via webhook or AI will appear here</p>
           </CardContent></Card>
         ) : (
-          <div className="space-y-3">
-            {pendingList.map(p => (
-              <Card key={p.id} data-testid={`card-pending-${p.id}`} className="overflow-hidden">
-                <CardContent className="pt-4 pb-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3 flex-1 min-w-0">
-                      {p.logo && <img src={p.logo} alt={p.name} className="w-10 h-10 object-contain rounded border bg-white flex-shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-gray-900" data-testid={`text-pending-name-${p.id}`}>{p.name}</span>
-                          {statusBadge(p.status)}
-                          <Badge variant="outline" className="text-xs">{p.source}</Badge>
-                        </div>
-                        <p className="text-sm text-gray-500 truncate mt-0.5">{p.shortDescription}</p>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                          <span>⭐ {p.rating}</span>
-                          <span>💰 {p.price}</span>
-                          <span>🔗 {p.affiliateSlug}</span>
-                          <span>{new Date(p.createdAt).toLocaleDateString()}</span>
-                        </div>
-                      </div>
+          <div className="space-y-6">
+            {(() => {
+              const grouped: Record<number, PendingProduct[]> = {};
+              for (const p of pendingList) {
+                const cid = p.categoryId ?? 0;
+                if (!grouped[cid]) grouped[cid] = [];
+                grouped[cid].push(p);
+              }
+              return Object.entries(grouped).map(([cidStr, products]) => {
+                const cid = Number(cidStr);
+                const cat = catMap[cid];
+                return (
+                  <div key={cid}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Tag className="w-4 h-4 text-blue-500" />
+                      <h4 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">
+                        {cat ? cat.name : `Category ${cid || "Unknown"}`}
+                      </h4>
+                      <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">{products.length}</span>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Button size="sm" variant="outline" onClick={() => setExpandedId(expandedId === p.id ? null : p.id)} data-testid={`button-expand-${p.id}`}>
-                        {expandedId === p.id ? "Less" : "Preview"}
-                      </Button>
-                      {p.status === "pending" && (
-                        <>
-                          <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => approveMutation.mutate(p.id)} disabled={approveMutation.isPending} data-testid={`button-approve-${p.id}`}>
-                            <CheckCircle className="w-4 h-4 mr-1" /> Approve
-                          </Button>
-                          <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => rejectMutation.mutate(p.id)} disabled={rejectMutation.isPending} data-testid={`button-reject-${p.id}`}>
-                            <XCircle className="w-4 h-4 mr-1" /> Reject
-                          </Button>
-                        </>
-                      )}
-                      {p.status !== "pending" && (
-                        <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => deleteMutation.mutate(p.id)} data-testid={`button-delete-pending-${p.id}`}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
+                    <div className="space-y-3">
+                      {products.map(p => (
+                        <Card key={p.id} data-testid={`card-pending-${p.id}`} className="overflow-hidden">
+                          <CardContent className="pt-4 pb-4">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex items-start gap-3 flex-1 min-w-0">
+                                {p.logo && <img src={p.logo} alt={p.name} className="w-10 h-10 object-contain rounded border bg-white flex-shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-semibold text-gray-900" data-testid={`text-pending-name-${p.id}`}>{p.name}</span>
+                                    {statusBadge(p.status)}
+                                    <Badge variant="outline" className="text-xs">{p.source}</Badge>
+                                  </div>
+                                  <p className="text-sm text-gray-500 truncate mt-0.5">{p.shortDescription}</p>
+                                  <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                                    <span>⭐ {p.rating}</span>
+                                    <span>💰 {p.price}</span>
+                                    <span>🔗 {p.affiliateSlug}</span>
+                                    <span>{new Date(p.createdAt).toLocaleDateString()}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <Button size="sm" variant="outline" onClick={() => setExpandedId(expandedId === p.id ? null : p.id)} data-testid={`button-expand-${p.id}`}>
+                                  {expandedId === p.id ? "Less" : "Preview"}
+                                </Button>
+                                {p.status === "pending" && (
+                                  <>
+                                    <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => approveMutation.mutate(p.id)} disabled={approveMutation.isPending} data-testid={`button-approve-${p.id}`}>
+                                      <CheckCircle className="w-4 h-4 mr-1" /> Approve
+                                    </Button>
+                                    <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => rejectMutation.mutate(p.id)} disabled={rejectMutation.isPending} data-testid={`button-reject-${p.id}`}>
+                                      <XCircle className="w-4 h-4 mr-1" /> Reject
+                                    </Button>
+                                  </>
+                                )}
+                                {p.status !== "pending" && (
+                                  <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => deleteMutation.mutate(p.id)} data-testid={`button-delete-pending-${p.id}`}>
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+
+                            {expandedId === p.id && (
+                              <div className="mt-4 pt-4 border-t space-y-3">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                                  <div><span className="text-gray-400 block">Category</span><strong>{cat ? cat.name : `#${cid}`}</strong></div>
+                                  <div><span className="text-gray-400 block">Affiliate Slug</span><strong>{p.affiliateSlug}</strong></div>
+                                  <div><span className="text-gray-400 block">Commission</span><strong>{p.commission}</strong></div>
+                                  <div><span className="text-gray-400 block">Cookie Days</span><strong>{p.cookieDays}</strong></div>
+                                </div>
+                                {(p.pros as string[])?.length > 0 && (
+                                  <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                      <p className="text-gray-400 font-medium mb-1">Pros</p>
+                                      <ul className="space-y-1">{(p.pros as string[]).map((pro, i) => <li key={i} className="text-green-700">✓ {pro}</li>)}</ul>
+                                    </div>
+                                    <div>
+                                      <p className="text-gray-400 font-medium mb-1">Cons</p>
+                                      <ul className="space-y-1">{(p.cons as string[]).map((con, i) => <li key={i} className="text-red-600">✗ {con}</li>)}</ul>
+                                    </div>
+                                  </div>
+                                )}
+                                {p.detailedReview && <div className="text-sm text-gray-600 bg-gray-50 rounded p-3 line-clamp-3">{p.detailedReview}</div>}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
                     </div>
                   </div>
-
-                  {expandedId === p.id && (
-                    <div className="mt-4 pt-4 border-t space-y-3">
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                        <div><span className="text-gray-400 block">Category ID</span><strong>{p.categoryId}</strong></div>
-                        <div><span className="text-gray-400 block">Affiliate Slug</span><strong>{p.affiliateSlug}</strong></div>
-                        <div><span className="text-gray-400 block">Commission</span><strong>{p.commission}</strong></div>
-                        <div><span className="text-gray-400 block">Cookie Days</span><strong>{p.cookieDays}</strong></div>
-                      </div>
-                      {(p.pros as string[])?.length > 0 && (
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <p className="text-gray-400 font-medium mb-1">Pros</p>
-                            <ul className="space-y-1">{(p.pros as string[]).map((pro, i) => <li key={i} className="text-green-700">✓ {pro}</li>)}</ul>
-                          </div>
-                          <div>
-                            <p className="text-gray-400 font-medium mb-1">Cons</p>
-                            <ul className="space-y-1">{(p.cons as string[]).map((con, i) => <li key={i} className="text-red-600">✗ {con}</li>)}</ul>
-                          </div>
-                        </div>
-                      )}
-                      {p.detailedReview && <div className="text-sm text-gray-600 bg-gray-50 rounded p-3 line-clamp-3">{p.detailedReview}</div>}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+                );
+              });
+            })()}
           </div>
         )}
       </div>
